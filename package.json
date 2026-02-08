@@ -6,21 +6,46 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "clone": "tsx scripts/clone.ts"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.38",
+    "@ai-sdk/openai": "^3.0.26",
+    "@neondatabase/serverless": "^1.0.2",
+    "@privy-io/react-auth": "^3.13.1",
+    "@privy-io/server-auth": "^1.32.5",
+    "@tanstack/react-query": "^5.90.20",
+    "@trigger.dev/sdk": "^4.3.3",
+    "@xdevplatform/xdk": "^0.4.0",
+    "ai": "^6.0.77",
+    "clsx": "^2.1.1",
+    "dotenv": "^17.2.4",
+    "drizzle-orm": "^0.45.1",
+    "lucide-react": "^0.563.0",
     "next": "16.1.6",
+    "postgres": "^3.4.8",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "react-icons": "^5.5.0",
+    "tailwind-merge": "^3.4.0",
+    "uuid": "^13.0.0",
+    "viem": "^2.45.1",
+    "wagmi": "^3.4.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@trigger.dev/build": "^4.3.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/uuid": "^10.0.0",
+    "drizzle-kit": "^0.31.8",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
+    "trigger.dev": "^4.3.3",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }
