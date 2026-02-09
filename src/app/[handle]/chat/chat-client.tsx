@@ -233,22 +233,22 @@ export function ChatClient({
               <p className="text-white/60 text-sm mt-1 max-w-[380px] mx-auto line-clamp-1">{bio}</p>
             )}
             {credits && !credits.unlimited && (() => {
-              // Token holder with enough messages — no counter needed
-              if (credits.hasTokens && credits.messagesOwned >= LOW_MESSAGE_THRESHOLD) return null;
-
-              // Token holder running low
-              if (credits.hasTokens && credits.messagesOwned < LOW_MESSAGE_THRESHOLD) {
+              // Token holder — always show count, highlight when running low
+              if (credits.hasTokens) {
+                const isLow = credits.messagesOwned < LOW_MESSAGE_THRESHOLD;
                 return (
                   <div className="flex items-center gap-2 mt-2">
-                    <span className="text-yellow-400/60 text-xs">
-                      {credits.messagesOwned} message{credits.messagesOwned !== 1 ? 's' : ''} remaining
+                    <span className={`text-xs ${isLow ? 'text-yellow-400/60' : 'text-white/40'}`}>
+                      {credits.messagesOwned.toLocaleString()} message{credits.messagesOwned !== 1 ? 's' : ''} remaining
                     </span>
-                    <Link
-                      href={`/${handle}#trade`}
-                      className="text-[11px] font-semibold text-black bg-lime rounded-full px-2.5 py-0.5 hover:bg-lime/90 transition-colors"
-                    >
-                      Buy
-                    </Link>
+                    {isLow && (
+                      <Link
+                        href={`/${handle}#trade`}
+                        className="text-[11px] font-semibold text-black bg-lime rounded-full px-2.5 py-0.5 hover:bg-lime/90 transition-colors"
+                      >
+                        Buy
+                      </Link>
+                    )}
                   </div>
                 );
               }
