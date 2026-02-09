@@ -183,14 +183,14 @@ export function ChatClient({
             <Image
               src={avatar}
               alt={name}
-              width={56}
-              height={56}
+              width={64}
+              height={64}
               className="rounded-full object-cover border border-white/10 shadow-sm"
-              style={{ minWidth: 44, minHeight: 44 }}
+              style={{ minWidth: 52, minHeight: 52 }}
             />
-            <h1 className="text-white font-semibold text-base mt-2">{name}</h1>
+            <h1 className="text-white font-semibold text-lg mt-2">{name}</h1>
             {bio && (
-              <p className="text-white/60 text-xs mt-1 max-w-[340px] mx-auto line-clamp-1">{bio}</p>
+              <p className="text-white/60 text-sm mt-1 max-w-[380px] mx-auto line-clamp-1">{bio}</p>
             )}
           </div>
 
@@ -211,7 +211,7 @@ export function ChatClient({
           >
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full text-center opacity-40">
-                <p className="text-white/70 text-sm">Start chatting with @{handle}</p>
+                <p className="text-white/70 text-base">Start chatting with @{handle}</p>
               </div>
             )}
 
@@ -230,7 +230,7 @@ export function ChatClient({
                     {lines.map((line, i) => (
                       <div
                         key={`${msg.id}-${i}`}
-                        className="w-fit max-w-[85%] rounded-2xl rounded-bl-md px-4 py-3 text-[14px] leading-relaxed bg-white/8 backdrop-blur-md text-white border border-white/6"
+                        className="w-fit max-w-[85%] rounded-2xl rounded-bl-md px-4 py-3 text-[15px] leading-relaxed bg-white/8 backdrop-blur-md text-white border border-white/6"
                       >
                         {line}
                       </div>
@@ -244,7 +244,7 @@ export function ChatClient({
                 return (
                   <div key={msg.id} className="space-y-3">
                     <div className="flex items-center gap-2 justify-end">
-                      <span className="text-white/50 text-xs font-medium">{userName}</span>
+                      <span className="text-white/50 text-sm font-medium">{userName}</span>
                       {userAvatar ? (
                         <Image
                           src={userAvatar}
@@ -260,7 +260,7 @@ export function ChatClient({
                       )}
                     </div>
                     <div className="flex justify-end">
-                      <div className="w-fit max-w-[85%] rounded-2xl rounded-br-md px-4 py-3 text-[14px] leading-relaxed bg-white/8 backdrop-blur-md text-white border border-white/6">
+                      <div className="w-fit max-w-[85%] rounded-2xl rounded-br-md px-4 py-3 text-[15px] leading-relaxed bg-white/8 backdrop-blur-md text-white border border-white/6">
                         {msg.content}
                       </div>
                     </div>
@@ -272,7 +272,7 @@ export function ChatClient({
               return (
                 <div key={msg.id} className="space-y-3">
                   <NameTag src={avatar} label={name} />
-                  <div className="max-w-fit rounded-2xl rounded-bl-md px-4 py-3 text-[14px] leading-relaxed bg-white/8 backdrop-blur-md text-white border border-white/6">
+                  <div className="max-w-fit rounded-2xl rounded-bl-md px-4 py-3 text-[15px] leading-relaxed bg-white/8 backdrop-blur-md text-white border border-white/6">
                     {msg.content || (
                       <span className="inline-flex gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-gray animate-blink" />
@@ -290,34 +290,34 @@ export function ChatClient({
           {/* ─── Input bar (fixed at bottom) ─── */}
           <div className="shrink-0 px-4 pb-4 pt-2">
             <form onSubmit={handleSubmit}>
-              <div className="flex items-center gap-2 bg-white/8 backdrop-blur-md border border-white/10 rounded-2xl px-4 py-2.5 focus-within:border-lime/30 transition-colors">
+              <div className="flex items-center gap-2 bg-white/8 backdrop-blur-md border border-white/10 rounded-2xl px-4 py-3 focus-within:border-lime/30 transition-colors">
                 <input
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder={`Message ${name}...`}
-                  className="flex-1 bg-transparent text-white text-sm placeholder:text-white/30 outline-none"
+                  className="flex-1 bg-transparent text-white text-base placeholder:text-white/30 outline-none"
                 />
                 {isLoading ? (
                   <button
                     type="button"
                     onClick={stop}
-                    className="p-2 rounded-full bg-red-500/20 text-red-400 cursor-pointer"
+                    className="p-2.5 rounded-full bg-red-500/20 text-red-400 cursor-pointer"
                   >
-                    <Square size={14} />
+                    <Square size={16} />
                   </button>
                 ) : (
                   <button
                     type="submit"
                     disabled={!input.trim()}
-                    className="p-2 rounded-full bg-lime text-black disabled:opacity-30 cursor-pointer"
+                    className="p-2.5 rounded-full bg-lime text-black disabled:opacity-30 cursor-pointer"
                   >
-                    <ArrowUp size={14} />
+                    <ArrowUp size={16} />
                   </button>
                 )}
               </div>
             </form>
-            <p className="text-white/20 text-[10px] text-center mt-2">
+            <p className="text-white/20 text-xs text-center mt-2">
               This is an AI clone. Responses are generated, not from the real person.
             </p>
           </div>
@@ -341,9 +341,9 @@ export function ChatClient({
 
 function NameTag({ src, label }: { src: string; label: string }) {
   return (
-    <div className="flex items-center gap-2">
-      <Image src={src} alt={label} width={24} height={24} className="rounded-full object-cover" />
-      <span className="text-white/70 text-xs font-medium">{label}</span>
+    <div className="flex items-center gap-2.5">
+      <Image src={src} alt={label} width={28} height={28} className="rounded-full object-cover" />
+      <span className="text-white/70 text-sm font-medium">{label}</span>
     </div>
   );
 }

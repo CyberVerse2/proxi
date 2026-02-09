@@ -18,16 +18,16 @@ export function TopNewProxies({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-white font-semibold text-sm">{title}</h2>
+          <h2 className="text-white font-semibold text-base">{title}</h2>
           {subtitle && (
-            <p className="text-gray text-xs mt-0.5">{subtitle}</p>
+            <p className="text-gray text-sm mt-0.5">{subtitle}</p>
           )}
         </div>
         <Link
           href="/explore"
-          className="flex items-center gap-1 text-gray text-xs hover:text-white no-underline transition-colors"
+          className="flex items-center gap-1 text-gray text-sm hover:text-white no-underline transition-colors"
         >
-          Show more <ChevronRight size={14} />
+          Show more <ChevronRight size={16} />
         </Link>
       </div>
 
@@ -37,7 +37,7 @@ export function TopNewProxies({
             <ProxyCard key={proxy.id} proxy={proxy} />
           ))
         ) : (
-          <p className="text-gray text-xs py-4">No new proxies yet</p>
+          <p className="text-gray text-sm py-4">No new proxies yet</p>
         )}
       </div>
     </div>

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Star, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/use-auth';
 
 interface ReviewModalProps {
   proxyHandle: string;
@@ -21,6 +22,7 @@ export function ReviewModal({
   onClose,
   onSubmitted,
 }: ReviewModalProps) {
+  const { xHandle, xDisplayName: displayName, xProfileImageUrl } = useAuth();
   const [score, setScore] = useState(0);
   const [hoverScore, setHoverScore] = useState(0);
   const [showText, setShowText] = useState(false);
@@ -46,6 +48,9 @@ export function ReviewModal({
           privyId,
           score,
           text: reviewText.trim() || undefined,
+          userName: displayName ?? undefined,
+          userHandle: xHandle ?? undefined,
+          userAvatar: xProfileImageUrl ?? undefined,
         }),
       });
       setSubmitted(true);
@@ -74,43 +79,43 @@ export function ReviewModal({
       />
 
       {/* Modal */}
-      <div className="relative z-10 w-[380px] max-w-[90vw] bg-[#1a1a1a] border border-white/10 rounded-2xl p-6 animate-in zoom-in-95 fade-in duration-200 shadow-2xl">
+      <div className="relative z-10 w-[420px] max-w-[90vw] bg-[#1a1a1a] border border-white/10 rounded-2xl p-7 animate-in zoom-in-95 fade-in duration-200 shadow-2xl">
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 p-1.5 rounded-lg text-white/30 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+          className="absolute top-4 right-4 p-2 rounded-lg text-white/30 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
         >
-          <X size={16} />
+          <X size={18} />
         </button>
 
         {submitted ? (
           /* ─── Thank you state ─── */
-          <div className="text-center py-4">
-            <div className="text-3xl mb-2">🎉</div>
-            <p className="text-white font-semibold">Thanks for your review!</p>
-            <p className="text-gray text-xs mt-1">Your feedback helps others</p>
+          <div className="text-center py-5">
+            <div className="text-4xl mb-3">🎉</div>
+            <p className="text-white font-semibold text-lg">Thanks for your review!</p>
+            <p className="text-gray text-sm mt-1">Your feedback helps others</p>
           </div>
         ) : (
           <>
             {/* Header */}
-            <div className="text-center mb-5">
+            <div className="text-center mb-6">
               <img
                 src={proxyAvatar}
                 alt={proxyName}
-                width={48}
-                height={48}
+                width={56}
+                height={56}
                 className="rounded-full mx-auto mb-3 border border-white/10"
               />
-              <p className="text-white font-semibold text-base">
+              <p className="text-white font-semibold text-lg">
                 How was your chat?
               </p>
-              <p className="text-gray text-xs mt-1">
+              <p className="text-gray text-sm mt-1">
                 Rate your experience with {proxyName}
               </p>
             </div>
 
             {/* Star rating */}
-            <div className="flex items-center justify-center gap-2 mb-4">
+            <div className="flex items-center justify-center gap-2.5 mb-5">
               {Array.from({ length: 5 }).map((_, i) => (
                 <button
                   key={i}
@@ -121,7 +126,7 @@ export function ReviewModal({
                   className="cursor-pointer p-1 transition-transform hover:scale-110"
                 >
                   <Star
-                    size={32}
+                    size={36}
                     className={cn(
                       'transition-all duration-150',
                       i < (hoverScore || score)
@@ -135,7 +140,7 @@ export function ReviewModal({
 
             {/* Score label */}
             {score > 0 && (
-              <p className="text-center text-white/60 text-xs mb-4">
+              <p className="text-center text-white/60 text-sm mb-5">
                 {score === 1 && 'Poor'}
                 {score === 2 && 'Fair'}
                 {score === 3 && 'Good'}
@@ -153,21 +158,21 @@ export function ReviewModal({
                   placeholder="Tell others about your experience (optional)..."
                   rows={3}
                   autoFocus
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none focus:border-white/20 transition-colors resize-none"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-base text-white placeholder:text-white/25 outline-none focus:border-white/20 transition-colors resize-none"
                 />
 
                 <div className="flex gap-2">
                   <button
                     onClick={handleSubmit}
                     disabled={submitting}
-                    className="flex-1 py-2.5 bg-lime text-black text-sm font-semibold rounded-xl hover:bg-lime/90 transition-colors cursor-pointer disabled:opacity-50"
+                    className="flex-1 py-3 bg-lime text-black text-base font-semibold rounded-xl hover:bg-lime/90 transition-colors cursor-pointer disabled:opacity-50"
                   >
                     {submitting ? 'Submitting...' : 'Submit Review'}
                   </button>
                   <button
                     onClick={handleSkipText}
                     disabled={submitting}
-                    className="px-4 py-2.5 text-gray text-sm rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+                    className="px-5 py-3 text-gray text-base rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
                   >
                     Skip
                   </button>

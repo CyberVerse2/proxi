@@ -9,11 +9,13 @@ const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 const USDC_DECIMALS = 6;
 const TOKEN_DECIMALS = 18; // proxy tokens are 18 decimals
 
+// Fixed pricing: 1 message = $0.10 USDC
+export const MESSAGE_PRICE_USD = 0.1;
+
 const ERC20_ABI = parseAbi([
   "function balanceOf(address) view returns (uint256)",
   "function allowance(address owner, address spender) view returns (uint256)",
   "function approve(address spender, uint256 amount) returns (bool)",
-  "function transfer(address to, uint256 amount) returns (bool)",
 ]);
 
 interface SwapQuote {
@@ -44,8 +46,8 @@ export function useSwap() {
 
   /**
    * Get a price estimate (no transaction data, faster).
-   * Buy mode:  sell USDC → buy proxy tokens (messages)
-   * Sell mode: sell proxy tokens → buy USDC
+   * Buy mode:  amount = number of messages → converts to USDC (messages × $0.10), sells USDC for tokens
+   * Sell mode: amount = number of messages (tokens) to sell → gets USDC back
    */
   const getPrice = useCallback(
     async (
@@ -55,10 +57,15 @@ export function useSwap() {
     ): Promise<{ buyAmount: string; sellAmount: string } | null> => {
       setError(null);
       try {
-        // For buy: amount is in USDC (6 decimals) — user specifies USDC to spend
-        // For sell: amount is in tokens (18 decimals) — user specifies messages to sell
-        const decimals = mode === "buy" ? USDC_DECIMALS : TOKEN_DECIMALS;
-        const sellAmount = parseUnits(amount, decimals).toString();
+        // Buy: convert messages to USDC cost (messages × $0.10)
+        // Sell: amount is in tokens (18 decimals)
+        let sellAmount: string;
+        if (mode === "buy") {
+          const usdcCost = parseFloat(amount) * MESSAGE_PRICE_USD;
+          sellAmount = parseUnits(usdcCost.toFixed(USDC_DECIMALS), USDC_DECIMALS).toString();
+        } else {
+          sellAmount = parseUnits(amount, TOKEN_DECIMALS).toString();
+        }
 
         const params = new URLSearchParams({
           type: "price",
@@ -84,6 +91,7 @@ export function useSwap() {
 
   /**
    * Get a firm quote with transaction data ready to execute.
+   * Buy: amount = messages, Sell: amount = messages (tokens)
    */
   const getQuote = useCallback(
     async (
@@ -99,8 +107,13 @@ export function useSwap() {
       }
 
       try {
-        const decimals = mode === "buy" ? USDC_DECIMALS : TOKEN_DECIMALS;
-        const sellAmount = parseUnits(amount, decimals).toString();
+        let sellAmount: string;
+        if (mode === "buy") {
+          const usdcCost = parseFloat(amount) * MESSAGE_PRICE_USD;
+          sellAmount = parseUnits(usdcCost.toFixed(USDC_DECIMALS), USDC_DECIMALS).toString();
+        } else {
+          sellAmount = parseUnits(amount, TOKEN_DECIMALS).toString();
+        }
 
         const params = new URLSearchParams({
           type: "quote",
@@ -127,8 +140,8 @@ export function useSwap() {
 
   /**
    * Execute a swap: get quote, approve if needed, send transaction.
-   * Buy mode:  user specifies USDC amount → gets proxy tokens
-   * Sell mode: user specifies token amount → gets USDC
+   * Buy mode:  user specifies messages → internally converts to USDC
+   * Sell mode: user specifies messages (tokens) → gets USDC
    */
   const executeSwap = useCallback(
     async (
@@ -149,7 +162,7 @@ export function useSwap() {
       try {
         const provider = await wallet.getEthereumProvider();
 
-        // 1. Get quote
+        // 1. Get quote (amount is messages for both modes, getQuote handles conversion)
         const quote = await getQuote(tokenAddress, amount, mode);
         if (!quote?.transaction) {
           throw new Error("No transaction data in quote");
@@ -158,8 +171,13 @@ export function useSwap() {
         // 2. Check and set allowance for the sell token
         // Buy mode: approve USDC spend; Sell mode: approve proxy token spend
         const sellTokenAddress = mode === "buy" ? USDC_ADDRESS : tokenAddress;
-        const decimals = mode === "buy" ? USDC_DECIMALS : TOKEN_DECIMALS;
-        const sellAmountWei = parseUnits(amount, decimals);
+        let sellAmountWei: bigint;
+        if (mode === "buy") {
+          const usdcCost = parseFloat(amount) * MESSAGE_PRICE_USD;
+          sellAmountWei = parseUnits(usdcCost.toFixed(USDC_DECIMALS), USDC_DECIMALS);
+        } else {
+          sellAmountWei = parseUnits(amount, TOKEN_DECIMALS);
+        }
         const allowanceTarget = quote.allowanceTarget;
 
         // Check current allowance
@@ -282,57 +300,12 @@ export function useSwap() {
     [getWallet],
   );
 
-  /**
-   * Send USDC to an external address (withdraw).
-   */
-  const sendUsdc = useCallback(
-    async (to: string, amount: string): Promise<string | null> => {
-      setLoading(true);
-      setError(null);
-      const wallet = getWallet();
-      if (!wallet) {
-        setError("No wallet connected");
-        setLoading(false);
-        return null;
-      }
-      try {
-        const provider = await wallet.getEthereumProvider();
-        const transferData = encodeFunctionData({
-          abi: ERC20_ABI,
-          functionName: "transfer",
-          args: [
-            to as `0x${string}`,
-            parseUnits(amount, USDC_DECIMALS),
-          ],
-        });
-        const txHash = await provider.request({
-          method: "eth_sendTransaction",
-          params: [
-            {
-              from: wallet.address,
-              to: USDC_ADDRESS,
-              data: transferData,
-            },
-          ],
-        });
-        return txHash as string;
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Transfer failed");
-        return null;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [getWallet],
-  );
-
   return {
     getPrice,
     getQuote,
     executeSwap,
     getUsdcBalance,
     getTokenBalance,
-    sendUsdc,
     loading,
     error,
     walletAddress: getWallet()?.address ?? null,

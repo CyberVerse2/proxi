@@ -16,10 +16,10 @@ export function PortfolioSection() {
     <div className="space-y-6 ">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-white text-2xl font-medium">My portfolio</h1>
+          <h1 className="text-white text-3xl font-medium">My portfolio</h1>
           <div className="flex items-baseline gap-2 mt-1">
-            <span className="text-white text-4xl font-bold">{totalValue}</span>
-            <span className="text-gray text-sm">{change}</span>
+            <span className="text-white text-5xl font-bold">{totalValue}</span>
+            <span className="text-gray text-base">{change}</span>
           </div>
         </div>
         <div className="flex items-center gap-0.5 bg-white/4 rounded-lg p-0.5">
@@ -28,7 +28,7 @@ export function PortfolioSection() {
               key={r}
               onClick={() => setRange(r)}
               className={cn(
-                "px-3 py-1.5 text-xs rounded-md cursor-pointer transition-colors",
+                "px-4 py-2 text-sm rounded-md cursor-pointer transition-colors",
                 range === r
                   ? "bg-white/10 text-white"
                   : "text-gray hover:text-white"
@@ -40,7 +40,7 @@ export function PortfolioSection() {
         </div>
       </div>
 
-      <div className="relative h-[160px] w-full">
+      <div className="relative h-[180px] w-full">
         <svg viewBox="0 0 600 120" className="w-full h-full" preserveAspectRatio="none">
           <defs>
             <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
@@ -56,9 +56,9 @@ export function PortfolioSection() {
       <div className="h-px bg-white/6" />
 
       <div className="flex items-center justify-between">
-        <span className="text-white text-sm font-medium">Total balance</span>
-        <button className="flex items-center gap-1 text-white text-sm cursor-pointer bg-transparent border-none">
-          {totalValue} <ChevronDown size={14} className="text-gray" />
+        <span className="text-white text-base font-medium">Total balance</span>
+        <button className="flex items-center gap-1 text-white text-base cursor-pointer bg-transparent border-none">
+          {totalValue} <ChevronDown size={16} className="text-gray" />
         </button>
       </div>
 

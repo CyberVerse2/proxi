@@ -56,13 +56,13 @@ export default async function VisualizeBrainPage({ params }: Props) {
         <TopNav />
         <main className="pt-20">
           <div className="max-w-5xl mx-auto px-6 pb-20 pt-8">
-            <Link href={`/${handle}`} className="inline-flex items-center gap-2 text-gray hover:text-white text-sm mb-8 transition-colors">
-              <ArrowLeft size={16} /> Back to profile
+            <Link href={`/${handle}`} className="inline-flex items-center gap-2 text-gray hover:text-white text-base mb-8 transition-colors">
+              <ArrowLeft size={18} /> Back to profile
             </Link>
             <div className="flex flex-col items-center justify-center py-32 text-center">
-              <Brain size={48} className="text-gray/40 mb-4" />
-              <h1 className="text-2xl font-bold text-white mb-2">No brain data yet</h1>
-              <p className="text-gray text-sm max-w-md">
+              <Brain size={52} className="text-gray/40 mb-4" />
+              <h1 className="text-3xl font-bold text-white mb-2">No brain data yet</h1>
+              <p className="text-gray text-base max-w-md">
                 This proxy hasn&apos;t been built yet. Once @{handle} is ingested, their brain visualization will appear here.
               </p>
             </div>
@@ -82,8 +82,8 @@ export default async function VisualizeBrainPage({ params }: Props) {
       <main className="pt-20">
         <div className="max-w-5xl mx-auto px-6 pb-20 pt-8">
           {/* Navigation */}
-          <Link href={`/${handle}`} className="inline-flex items-center gap-2 text-gray hover:text-white text-sm mb-8 transition-colors">
-            <ArrowLeft size={16} /> Back to profile
+          <Link href={`/${handle}`} className="inline-flex items-center gap-2 text-gray hover:text-white text-base mb-8 transition-colors">
+            <ArrowLeft size={18} /> Back to profile
           </Link>
 
           {/* Header */}
@@ -100,7 +100,7 @@ export default async function VisualizeBrainPage({ params }: Props) {
                   <Brain size={12} /> Live
                 </Badge>
               </div>
-              <p className="text-gray text-sm mt-0.5">
+              <p className="text-gray text-base mt-0.5">
                 Inside the mind of <span className="text-white font-medium">@{handle}</span>
               </p>
             </div>
@@ -113,7 +113,7 @@ export default async function VisualizeBrainPage({ params }: Props) {
                 <SectionHeader icon={<User size={18} />} title="Personality" color="lime" />
                 <Card className="relative overflow-hidden border-lime/10 bg-gradient-to-br from-dark2 to-dark3">
                   <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-lime/30 to-transparent" />
-                  <p className="text-white/90 text-sm leading-relaxed whitespace-pre-line">
+                  <p className="text-white/90 text-base leading-relaxed whitespace-pre-line">
                     {brain.personality}
                   </p>
                 </Card>
@@ -125,7 +125,7 @@ export default async function VisualizeBrainPage({ params }: Props) {
               <section className="animate-fade-up" style={{ animationDelay: "50ms" }}>
                 <SectionHeader icon={<Sparkles size={18} />} title="Background" color="purple" />
                 <Card className="border-purple/10">
-                  <p className="text-white/80 text-sm leading-relaxed">
+                  <p className="text-white/80 text-base leading-relaxed">
                     {brain.background}
                   </p>
                 </Card>
@@ -139,10 +139,10 @@ export default async function VisualizeBrainPage({ params }: Props) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {Object.entries(brain.topicMap!).map(([category, subtopics]) => (
                     <Card key={category} className="group hover:border-lime/20 transition-colors">
-                      <h4 className="text-white font-semibold text-sm mb-2.5">{category}</h4>
-                      <div className="flex flex-wrap gap-1.5">
+                      <h4 className="text-white font-semibold text-base mb-2.5">{category}</h4>
+                      <div className="flex flex-wrap gap-2">
                         {subtopics.map((sub) => (
-                          <span key={sub} className="text-[11px] text-gray bg-white/[0.04] px-2 py-0.5 rounded-full border border-white/[0.06]">
+                          <span key={sub} className="text-xs text-gray bg-white/[0.04] px-2.5 py-1 rounded-full border border-white/[0.06]">
                             {sub}
                           </span>
                         ))}
@@ -161,7 +161,7 @@ export default async function VisualizeBrainPage({ params }: Props) {
                   {brain.beliefs.map((belief, i) => (
                     <div key={i} className="flex items-start gap-3 rounded-lg bg-dark2 border border-white/[0.06] p-4 hover:border-lime/15 transition-colors">
                       <div className="mt-1 w-2 h-2 rounded-full bg-lime shrink-0" />
-                      <p className="text-white/85 text-sm leading-relaxed">{belief}</p>
+                      <p className="text-white/85 text-base leading-relaxed">{belief}</p>
                     </div>
                   ))}
                 </div>
@@ -175,8 +175,8 @@ export default async function VisualizeBrainPage({ params }: Props) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {Object.entries(brain.opinions!).map(([topic, stance]) => (
                     <Card key={topic} className="hover:border-lime/15 transition-colors">
-                      <h4 className="text-lime text-xs font-semibold uppercase tracking-wider mb-1.5">{topic}</h4>
-                      <p className="text-white/80 text-sm leading-relaxed">{stance}</p>
+                      <h4 className="text-lime text-sm font-semibold uppercase tracking-wider mb-1.5">{topic}</h4>
+                      <p className="text-white/80 text-base leading-relaxed">{stance}</p>
                     </Card>
                   ))}
                 </div>
@@ -189,7 +189,7 @@ export default async function VisualizeBrainPage({ params }: Props) {
                 <SectionHeader icon={<Brain size={18} />} title="How They Think" color="purple" />
                 <Card className="relative overflow-hidden border-purple/10 bg-gradient-to-br from-dark2 to-dark3">
                   <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-purple/40 to-transparent" />
-                  <p className="text-white/85 text-sm leading-relaxed whitespace-pre-line">
+                  <p className="text-white/85 text-base leading-relaxed whitespace-pre-line">
                     {brain.reasoningStyle}
                   </p>
                 </Card>
@@ -207,9 +207,9 @@ export default async function VisualizeBrainPage({ params }: Props) {
                       <Card key={trigger} className="hover:border-lime/15 transition-colors">
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-lg">{emoji}</span>
-                          <h4 className="text-white font-semibold text-sm capitalize">{trigger}</h4>
+                          <h4 className="text-white font-semibold text-base capitalize">{trigger}</h4>
                         </div>
-                        <p className="text-white/70 text-sm leading-relaxed">{reaction}</p>
+                        <p className="text-white/70 text-base leading-relaxed">{reaction}</p>
                       </Card>
                     );
                   })}
@@ -225,7 +225,7 @@ export default async function VisualizeBrainPage({ params }: Props) {
                   {brain.contradictions.map((c, i) => (
                     <div key={i} className="flex items-start gap-3 rounded-lg bg-purple/[0.04] border border-purple/10 p-4">
                       <Shuffle size={14} className="text-purple mt-0.5 shrink-0" />
-                      <p className="text-white/75 text-sm leading-relaxed">{c}</p>
+                      <p className="text-white/75 text-base leading-relaxed">{c}</p>
                     </div>
                   ))}
                 </div>
@@ -240,7 +240,7 @@ export default async function VisualizeBrainPage({ params }: Props) {
                   {brain.blindSpots.map((b, i) => (
                     <div key={i} className="flex items-start gap-3 rounded-lg bg-white/[0.02] border border-white/[0.06] p-4">
                       <AlertTriangle size={14} className="text-gray mt-0.5 shrink-0" />
-                      <p className="text-gray text-sm leading-relaxed">{b}</p>
+                      <p className="text-gray text-base leading-relaxed">{b}</p>
                     </div>
                   ))}
                 </div>
@@ -255,7 +255,7 @@ export default async function VisualizeBrainPage({ params }: Props) {
                   {brain.vocabularyFingerprint.map((phrase) => (
                     <span
                       key={phrase}
-                      className="text-sm text-lime bg-lime/[0.06] border border-lime/15 px-3.5 py-1.5 rounded-full font-medium"
+                      className="text-base text-lime bg-lime/[0.06] border border-lime/15 px-4 py-2 rounded-full font-medium"
                     >
                       &ldquo;{phrase}&rdquo;
                     </span>
@@ -272,12 +272,12 @@ export default async function VisualizeBrainPage({ params }: Props) {
                   {brain.faq.map((item, i) => (
                     <details key={i} className="group rounded-lg bg-dark2 border border-white/[0.06] hover:border-lime/15 transition-colors">
                       <summary className="flex items-center gap-3 p-4 cursor-pointer list-none select-none">
-                        <span className="text-lime text-xs font-bold shrink-0">Q</span>
-                        <span className="text-white text-sm font-medium flex-1">{item.question}</span>
-                        <span className="text-gray text-xs group-open:rotate-90 transition-transform">&#9656;</span>
+                        <span className="text-lime text-sm font-bold shrink-0">Q</span>
+                        <span className="text-white text-base font-medium flex-1">{item.question}</span>
+                        <span className="text-gray text-sm group-open:rotate-90 transition-transform">&#9656;</span>
                       </summary>
                       <div className="px-4 pb-4 pt-0 ml-7">
-                        <p className="text-white/70 text-sm leading-relaxed italic">&ldquo;{item.answer}&rdquo;</p>
+                        <p className="text-white/70 text-base leading-relaxed italic">&ldquo;{item.answer}&rdquo;</p>
                       </div>
                     </details>
                   ))}
@@ -330,9 +330,9 @@ function SectionHeader({
     <div className="mb-3">
       <div className="flex items-center gap-2">
         <span className={colorMap[color]}>{icon}</span>
-        <h2 className="text-white font-bold text-lg">{title}</h2>
+        <h2 className="text-white font-bold text-xl">{title}</h2>
       </div>
-      {subtitle && <p className="text-gray text-xs mt-0.5 ml-[26px]">{subtitle}</p>}
+      {subtitle && <p className="text-gray text-sm mt-0.5 ml-[26px]">{subtitle}</p>}
     </div>
   );
 }

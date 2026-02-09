@@ -11,12 +11,12 @@ export function TrendingProxies({ proxies }: TrendingProxiesProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-white font-semibold text-sm">Trending proxies</h2>
+        <h2 className="text-white font-semibold text-base">Trending proxies</h2>
         <Link
           href="/explore?category=trending"
-          className="flex items-center gap-1 text-gray text-xs hover:text-white no-underline transition-colors"
+          className="flex items-center gap-1 text-gray text-sm hover:text-white no-underline transition-colors"
         >
-          Show more <ChevronRight size={14} />
+          Show more <ChevronRight size={16} />
         </Link>
       </div>
 
@@ -26,7 +26,7 @@ export function TrendingProxies({ proxies }: TrendingProxiesProps) {
             <ProxyCard key={proxy.id} proxy={proxy} />
           ))
         ) : (
-          <p className="text-gray text-xs py-4">No trending proxies yet</p>
+          <p className="text-gray text-sm py-4">No trending proxies yet</p>
         )}
       </div>
     </div>

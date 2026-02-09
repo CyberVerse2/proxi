@@ -5,20 +5,24 @@
  *   1. Look up X user
  *   2. Create Privy user with embedded wallet (server-side)
  *   3. Create DB user + proxy records
- *   4. Trigger ingest-proxy task (ingestion + token deployment)
+ *   4. Trigger ingest-proxy task (ingestion + token deployment + auto-categorization)
  *
  * Usage:
  *   npm run clone <username> [maxTweets]
  *
  * Options:
- *   --skip-privy     Skip Privy wallet creation (use a dummy wallet)
- *   --skip-token     Skip token deployment in the ingest task
- *   --mock           Use mock tweets instead of calling X API (free, runs locally)
+ *   --skip-privy           Skip Privy wallet creation (use a dummy wallet)
+ *   --skip-token           Skip token deployment in the ingest task
+ *   --mock                 Use mock tweets instead of calling X API (free, runs locally)
+ *   --category=<slug>      Manually set proxy category (skips AI auto-classification)
+ *                          Valid slugs: top-creators, founders, influencers, traders,
+ *                          investors, ui-ux-design, athletes, solana, musicians
  *
  * Examples:
  *   npm run clone elonmusk
  *   npm run clone elonmusk 50
  *   npm run clone elonmusk --skip-privy
+ *   npm run clone elonmusk --category=founders
  *   npm run clone testuser --mock --skip-privy    # Free: no X API, no Privy
  */
 
@@ -40,7 +44,7 @@ const positional = args.filter((a) => !a.startsWith("--"));
 const handle = positional[0];
 if (!handle) {
   console.error(
-    "Usage: npm run clone <username> [maxTweets] [--skip-privy] [--skip-token] [--mock]"
+    "Usage: npm run clone <username> [maxTweets] [--skip-privy] [--skip-token] [--mock] [--category=<slug>]"
   );
   process.exit(1);
 }
@@ -49,6 +53,19 @@ const maxTweets = positional[1] ? parseInt(positional[1], 10) : undefined;
 const skipPrivy = flags.includes("--skip-privy");
 const skipToken = flags.includes("--skip-token");
 const useMock = flags.includes("--mock");
+const categoryFlag = flags.find((f) => f.startsWith("--category="))?.split("=")[1];
+
+const VALID_CATEGORIES = [
+  "top-creators", "founders", "influencers", "traders", "investors",
+  "ui-ux-design", "athletes", "solana", "musicians",
+];
+
+if (categoryFlag && !VALID_CATEGORIES.includes(categoryFlag)) {
+  console.error(
+    `❌ Invalid category "${categoryFlag}". Valid options:\n   ${VALID_CATEGORIES.join(", ")}`
+  );
+  process.exit(1);
+}
 
 async function main() {
   const cleanHandle = handle.replace(/^@/, "");
@@ -228,6 +245,19 @@ async function main() {
     console.log(`✅ Created proxy ${proxyId}`);
   }
 
+  // ── Step 2b: Set category (if manually specified) ─────────
+  if (categoryFlag) {
+    const [cat] = await sql`
+      SELECT id, name FROM categories WHERE slug = ${categoryFlag}
+    `;
+    if (cat) {
+      await sql`UPDATE proxies SET category_id = ${cat.id} WHERE id = ${proxyId}`;
+      console.log(`🏷️  Category set: ${cat.name}`);
+    } else {
+      console.log(`⚠️  Category "${categoryFlag}" not found in DB. Run: npm run db:seed`);
+    }
+  }
+
   // ── Step 3: Trigger ingestion + token deployment ──────────
   if (useMock) {
     // Run ingestion directly (no Trigger.dev needed) with mock tweets
@@ -287,11 +317,12 @@ async function main() {
 
   // ── Summary ────────────────────────────────────────────────
   console.log(`\n📋 Summary:`);
-  console.log(`   X User:   @${cleanHandle} (${xUser.name})`);
-  console.log(`   Privy ID: ${privyId ?? "none"}`);
-  console.log(`   Wallet:   ${walletAddress ?? "none"}`);
-  console.log(`   User ID:  ${userId ?? "none"}`);
-  console.log(`   Proxy ID: ${proxyId}`);
+  console.log(`   X User:    @${cleanHandle} (${xUser.name})`);
+  console.log(`   Privy ID:  ${privyId ?? "none"}`);
+  console.log(`   Wallet:    ${walletAddress ?? "none"}`);
+  console.log(`   User ID:   ${userId ?? "none"}`);
+  console.log(`   Proxy ID:  ${proxyId}`);
+  console.log(`   Category:  ${categoryFlag ?? "auto (assigned during ingestion)"}`);
 
   await sql.end();
 }

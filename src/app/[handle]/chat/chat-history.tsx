@@ -110,64 +110,64 @@ export function ChatHistory({
   const groups = groupByTime(conversations);
 
   return (
-    <div className="w-[260px] shrink-0 h-full flex flex-col bg-black/60 backdrop-blur-xl border-l border-white/8 z-20 relative">
+    <div className="w-[280px] shrink-0 h-full flex flex-col bg-black/60 backdrop-blur-xl border-l border-white/8 z-20 relative">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-3 border-b border-white/8">
-        <span className="text-white/70 text-xs font-semibold uppercase tracking-wider">
+      <div className="flex items-center justify-between px-4 py-3.5 border-b border-white/8">
+        <span className="text-white/70 text-sm font-semibold uppercase tracking-wider">
           Chats
         </span>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={onNewChat}
-            className="p-1.5 rounded-md text-white/50 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            className="p-2 rounded-md text-white/50 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
             title="New chat"
           >
-            <Plus size={15} />
+            <Plus size={17} />
           </button>
           <button
             onClick={() => setOpen(false)}
-            className="p-1.5 rounded-md text-white/50 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            className="p-2 rounded-md text-white/50 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
             title="Close panel"
           >
-            <PanelRightClose size={15} />
+            <PanelRightClose size={17} />
           </button>
         </div>
       </div>
 
       {/* Conversation list */}
-      <div className="flex-1 overflow-y-auto scrollbar-none px-2 py-2 space-y-3">
+      <div className="flex-1 overflow-y-auto scrollbar-none px-2.5 py-2.5 space-y-3">
         {loading && conversations.length === 0 && (
           <div className="flex items-center justify-center py-8">
-            <div className="w-4 h-4 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
           </div>
         )}
 
         {!loading && conversations.length === 0 && (
           <div className="flex flex-col items-center justify-center py-8 text-center">
-            <MessageSquare size={20} className="text-white/20 mb-2" />
-            <p className="text-white/30 text-xs">No conversations yet</p>
+            <MessageSquare size={24} className="text-white/20 mb-2" />
+            <p className="text-white/30 text-sm">No conversations yet</p>
           </div>
         )}
 
         {groups.map((group) => (
           <div key={group.label}>
-            <p className="text-white/30 text-[10px] font-semibold uppercase tracking-wider px-2 mb-1">
+            <p className="text-white/30 text-xs font-semibold uppercase tracking-wider px-2.5 mb-1.5">
               {group.label}
             </p>
             {group.items.map((convo) => (
               <button
                 key={convo.id}
                 onClick={() => onSelectConversation(convo.id)}
-                className={`w-full text-left px-2.5 py-2 rounded-lg text-sm transition-colors cursor-pointer mb-0.5 ${
+                className={`w-full text-left px-3 py-2.5 rounded-lg text-base transition-colors cursor-pointer mb-0.5 ${
                   convo.id === activeConversationId
                     ? "bg-white/12 text-white"
                     : "text-white/60 hover:bg-white/6 hover:text-white/80"
                 }`}
               >
-                <span className="block truncate text-[13px] leading-snug">
+                <span className="block truncate text-sm leading-snug">
                   {convo.title || "New conversation"}
                 </span>
-                <span className="block text-[10px] text-white/30 mt-0.5">
+                <span className="block text-xs text-white/30 mt-0.5">
                   {convo.totalMessages} message{convo.totalMessages !== 1 ? "s" : ""}
                 </span>
               </button>

@@ -120,6 +120,15 @@ export async function getAllCategories() {
   return db.select().from(categories).orderBy(asc(categories.sortOrder));
 }
 
+export async function getCategoryBySlug(slug: string) {
+  const [c] = await db
+    .select()
+    .from(categories)
+    .where(eq(categories.slug, slug))
+    .limit(1);
+  return c ?? null;
+}
+
 /* ---------- conversation queries ---------- */
 export async function createConversation(proxyId: string, userId: string, title?: string) {
   const [c] = await db

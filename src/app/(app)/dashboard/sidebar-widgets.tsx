@@ -37,29 +37,29 @@ export function LeaderboardWidget() {
   }, [ready, authenticated, user?.id]);
 
   return (
-    <Card className="space-y-3">
+    <Card className="space-y-4">
       <div>
-        <h3 className="text-white font-semibold text-sm">Leaderboard</h3>
-        <p className="text-gray text-[11px] mt-0.5">
+        <h3 className="text-white font-semibold text-base">Leaderboard</h3>
+        <p className="text-gray text-xs mt-0.5">
           Earn points by being a user of Proxi.
         </p>
       </div>
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-gray text-xs">Rank</span>
-          <span className="text-white text-sm font-semibold">
+          <span className="text-gray text-sm">Rank</span>
+          <span className="text-white text-base font-semibold">
             {rank ? `#${rank}` : "—"}
           </span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-gray text-xs">Points earned</span>
-          <span className="text-white text-sm font-semibold">
+          <span className="text-gray text-sm">Points earned</span>
+          <span className="text-white text-base font-semibold">
             {points !== null ? points.toLocaleString() : "—"}
           </span>
         </div>
       </div>
       <Link href="/leaderboard" className="block no-underline">
-        <Button variant="outline" size="sm" className="w-full rounded-lg">
+        <Button variant="outline" size="sm" className="w-full rounded-lg text-sm">
           Go to leaderboard
         </Button>
       </Link>
@@ -95,14 +95,14 @@ export function HoldingsWidget() {
   }, [ready, authenticated, walletAddress]);
 
   return (
-    <Card className="space-y-3">
+    <Card className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-white font-semibold text-sm">My holdings</h3>
+        <h3 className="text-white font-semibold text-base">My holdings</h3>
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="text-gray hover:text-white cursor-pointer bg-transparent border-none transition-colors"
         >
-          {collapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+          {collapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
         </button>
       </div>
       {!collapsed && (
@@ -112,7 +112,7 @@ export function HoldingsWidget() {
               <SidebarRow key={h.id} name={h.name} avatar={h.avatar} price={h.price} change={h.change24h} />
             ))
           ) : (
-            <p className="text-gray text-xs py-2">No holdings yet</p>
+            <p className="text-gray text-sm py-2">No holdings yet</p>
           )}
         </div>
       )}
@@ -141,14 +141,14 @@ export function WatchlistWidget() {
   }, [ready, authenticated, user?.id]);
 
   return (
-    <Card className="space-y-3">
+    <Card className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-white font-semibold text-sm">Watchlist</h3>
+        <h3 className="text-white font-semibold text-base">Watchlist</h3>
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="text-gray hover:text-white cursor-pointer bg-transparent border-none transition-colors"
         >
-          {collapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+          {collapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
         </button>
       </div>
       {!collapsed && (
@@ -165,7 +165,7 @@ export function WatchlistWidget() {
               />
             ))
           ) : (
-            <p className="text-gray text-xs py-2">No proxies on your watchlist</p>
+            <p className="text-gray text-sm py-2">No proxies on your watchlist</p>
           )}
         </div>
       )}
@@ -182,16 +182,16 @@ function SidebarRow({
   name: string; avatar: string; price: number; change: number; href?: string;
 }) {
   const content = (
-    <div className="flex items-center justify-between py-1 group">
-      <div className="flex items-center gap-2.5 min-w-0">
-        <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 border border-white/6">
-          <Image src={avatar} alt={name} width={32} height={32} className="object-cover w-full h-full" />
+    <div className="flex items-center justify-between py-1.5 group">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 border border-white/6">
+          <Image src={avatar} alt={name} width={36} height={36} className="object-cover w-full h-full" />
         </div>
-        <span className="text-white text-xs font-medium truncate group-hover:text-lime transition-colors">{name}</span>
+        <span className="text-white text-sm font-medium truncate group-hover:text-lime transition-colors">{name}</span>
       </div>
       <div className="text-right shrink-0 ml-3">
-        <span className="text-white text-xs block">${price.toFixed(2)}</span>
-        <span className="text-gray text-[10px]">{change >= 0 ? "+" : ""}{change.toFixed(2)}%</span>
+        <span className="text-white text-sm block">${price.toFixed(2)}</span>
+        <span className="text-gray text-xs">{change >= 0 ? "+" : ""}{change.toFixed(2)}%</span>
       </div>
     </div>
   );

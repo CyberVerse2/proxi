@@ -61,7 +61,7 @@ export async function GET(request: Request) {
  */
 export async function POST(request: Request) {
   const body = await request.json();
-  const { proxyHandle, privyId, score, text } = body;
+  const { proxyHandle, privyId, score, text, userName, userHandle, userAvatar } = body;
 
   if (!proxyHandle || !privyId || !score) {
     return NextResponse.json(
@@ -82,9 +82,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Proxy not found" }, { status: 404 });
   }
 
+  // Upsert user with their latest profile info from Privy
+  const userData: Parameters<typeof upsertUser>[0] = { privyId };
+  if (typeof userName === "string" && userName) userData.displayName = userName;
+  if (typeof userHandle === "string" && userHandle) userData.xHandle = userHandle;
+  if (typeof userAvatar === "string" && userAvatar) userData.xProfileImageUrl = userAvatar;
+
   let user = await getUserByPrivyId(privyId);
   if (!user) {
-    user = await upsertUser({ privyId });
+    user = await upsertUser(userData);
+  } else {
+    // Update profile fields if they're provided and missing/outdated
+    const needsUpdate =
+      (userData.displayName && user.displayName !== userData.displayName) ||
+      (userData.xHandle && user.xHandle !== userData.xHandle) ||
+      (userData.xProfileImageUrl && user.xProfileImageUrl !== userData.xProfileImageUrl);
+    if (needsUpdate) {
+      user = await upsertUser(userData);
+    }
   }
 
   await submitReview(

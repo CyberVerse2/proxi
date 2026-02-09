@@ -6,7 +6,8 @@ import { embedAndStoreChunks } from "@/lib/ai/embeddings";
 import { analyzeVoice } from "@/lib/ai/voice-analysis";
 import { buildCoreBrain } from "@/lib/ai/brain-builder";
 import { selectWritingExamples } from "@/lib/ai/example-selector";
-import { updateProxy } from "@/lib/db/queries";
+import { classifyProxy } from "@/lib/ai/classifier";
+import { updateProxy, getCategoryBySlug } from "@/lib/db/queries";
 
 interface IngestResult {
   tweetsCollected: number;
@@ -16,6 +17,7 @@ interface IngestResult {
   chunksStored: number;
   voiceProfile: Record<string, unknown>;
   coreBrain: Record<string, unknown>;
+  categorySlug?: string;
 }
 
 /**
@@ -29,7 +31,8 @@ interface IngestResult {
  *  7. Multi-pass voice analysis
  *  8. Select writing examples (few-shot)
  *  9. Topic-clustered brain building
- * 10. Update proxy record
+ * 10. AI-powered category classification
+ * 11. Update proxy record
  */
 export async function runFullIngestion(
   proxyId: string,
@@ -43,6 +46,8 @@ export async function runFullIngestion(
 
   let allTweets: import("./client").XTweet[];
   let userId: string;
+  let userBio: string | null = null;
+  let followerCount = 0;
 
   if (prefetchedTweets && prefetchedTweets.length > 0) {
     // Skip X API — use provided tweets
@@ -56,6 +61,8 @@ export async function runFullIngestion(
     const xUser = await getUserByUsername(xHandle);
     if (!xUser) throw new Error(`X user @${xHandle} not found`);
     userId = xUser.id;
+    userBio = xUser.description ?? null;
+    followerCount = xUser.public_metrics?.followers_count ?? 0;
 
     // Step 2: Update proxy with profile data
     log("update_profile", "Updating proxy profile...");
@@ -119,7 +126,41 @@ export async function runFullIngestion(
   const coreBrain = await buildCoreBrain(brainTexts, voiceRecord);
   log("brain", "Core brain built");
 
-  // Step 11: Update proxy with brain data
+  // Step 11: Classify into a category
+  let categorySlug: string | undefined;
+  try {
+    log("classify", "Classifying proxy category...");
+    // Extract topics from brain's topicMap and opinions
+    const brainRecord = coreBrain as unknown as Record<string, unknown>;
+    const topicMap = brainRecord.topicMap as Record<string, string[]> | undefined;
+    const opinions = brainRecord.opinions as Record<string, string> | undefined;
+    const topics = [
+      ...Object.keys(topicMap ?? {}),
+      ...Object.keys(opinions ?? {}),
+    ];
+
+    const classification = await classifyProxy({
+      bio: userBio,
+      followerCount,
+      topics,
+    });
+    categorySlug = classification.category;
+    log("classify", `Category: ${classification.category} (${(classification.confidence * 100).toFixed(0)}% confidence — ${classification.reasoning})`);
+
+    // Look up the category ID and assign it
+    const category = await getCategoryBySlug(classification.category);
+    if (category) {
+      await updateProxy(proxyId, { categoryId: category.id });
+      log("classify", `Assigned category: ${category.name}`);
+    } else {
+      log("classify", `Category "${classification.category}" not found in DB — run npm run db:seed`);
+    }
+  } catch (classifyErr) {
+    // Non-fatal: proxy still works without a category
+    log("classify", `Classification failed: ${classifyErr instanceof Error ? classifyErr.message : String(classifyErr)}`);
+  }
+
+  // Step 12: Update proxy with brain data
   log("finalize", "Saving brain to proxy...");
   await updateProxy(proxyId, {
     voiceProfile: voiceProfile as unknown as Record<string, unknown>,
@@ -138,6 +179,7 @@ export async function runFullIngestion(
     chunksStored: stored ?? 0,
     voiceProfile: voiceProfile as unknown as Record<string, unknown>,
     coreBrain: coreBrain as unknown as Record<string, unknown>,
+    categorySlug,
   };
 }
 

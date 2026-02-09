@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Wallet,
   Ghost,
@@ -10,6 +10,8 @@ import {
   ArrowUpRight,
   ArrowDownToLine,
   ArrowUpFromLine,
+  CheckCircle,
+  X,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -60,10 +62,21 @@ interface RecentChat {
 export default function PortfolioPage() {
   const { walletAddress, authenticated, ready, user } = useAuth();
   const { getUsdcBalance } = useSwap();
+  const balanceBeforeRef = useRef<string | null>(null);
   const { fundWallet } = useFundWallet({
     onUserExited() {
       // Refresh balance after user exits the funding flow
-      getUsdcBalance().then(setUsdcBalance);
+      getUsdcBalance().then((newBal) => {
+        const before = parseFloat(balanceBeforeRef.current ?? "0");
+        const after = parseFloat(newBal);
+        if (after > before + 0.001) {
+          const deposited = (after - before).toFixed(2);
+          setSuccessNotif({ type: "deposit", amount: deposited });
+          setTimeout(() => setSuccessNotif(null), 6000);
+        }
+        setUsdcBalance(newBal);
+        balanceBeforeRef.current = null;
+      });
     },
   });
   const [range, setRange] = useState<(typeof TIME_RANGES)[number]>("1D");
@@ -74,16 +87,33 @@ export default function PortfolioPage() {
   const [loading, setLoading] = useState(true);
   const [activityLoading, setActivityLoading] = useState(true);
   const [usdcBalance, setUsdcBalance] = useState("0");
+  const [usdcLoading, setUsdcLoading] = useState(true);
   const [showWithdraw, setShowWithdraw] = useState(false);
+  const [successNotif, setSuccessNotif] = useState<{
+    type: "deposit" | "withdraw";
+    amount: string;
+  } | null>(null);
 
   // Fetch USDC balance
   useEffect(() => {
-    if (!walletAddress) return;
-    getUsdcBalance().then(setUsdcBalance);
+    if (!walletAddress) {
+      const id = requestAnimationFrame(() => setUsdcLoading(false));
+      return () => cancelAnimationFrame(id);
+    }
+    let cancelled = false;
+    getUsdcBalance().then((bal) => {
+      if (!cancelled) {
+        setUsdcBalance(bal);
+        setUsdcLoading(false);
+      }
+    });
+    return () => { cancelled = true; };
   }, [walletAddress, getUsdcBalance]);
 
   const handleDeposit = () => {
     if (!walletAddress) return;
+    // Save current balance to detect change when Privy modal closes
+    balanceBeforeRef.current = usdcBalance;
     fundWallet({
       address: walletAddress,
       options: {
@@ -160,6 +190,24 @@ export default function PortfolioPage() {
   return (
     <div className="p-6 md:p-8 pt-8 flex justify-center">
       <div className="w-full max-w-[1200px] space-y-10">
+        {/* Success notification */}
+        {successNotif && (
+          <div className="flex items-center gap-3 bg-emerald-400/10 border border-emerald-400/20 rounded-xl px-4 py-3 animate-in fade-in slide-in-from-top-2 duration-300">
+            <CheckCircle size={20} className="text-emerald-400 shrink-0" />
+            <p className="text-emerald-400 text-sm font-medium flex-1">
+              {successNotif.type === "deposit"
+                ? `Deposit successful! ${successNotif.amount ? `$${successNotif.amount} USDC` : "USDC"} added to your wallet.`
+                : "Withdrawal sent! Your USDC is on its way."}
+            </p>
+            <button
+              onClick={() => setSuccessNotif(null)}
+              className="text-emerald-400/60 hover:text-emerald-400 transition-colors cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+
         {/* Top section: two columns */}
         <div className="flex gap-8">
           {/* Left: portfolio header + chart */}
@@ -167,12 +215,16 @@ export default function PortfolioPage() {
             {/* Header */}
             <div className="flex items-start justify-between">
               <div>
-                <h1 className="text-white text-2xl font-medium">My portfolio</h1>
+                <h1 className="text-white text-3xl font-medium">My portfolio</h1>
                 <div className="flex items-baseline gap-2 mt-1">
-                  <span className="text-white text-4xl font-bold">
-                    {formattedTotal}
-                  </span>
-                  <span className="text-gray text-sm">0.00%</span>
+                  {loading ? (
+                    <div className="h-12 w-40 bg-white/6 rounded-lg animate-pulse mt-1" />
+                  ) : (
+                    <span className="text-white text-5xl font-bold">
+                      {formattedTotal}
+                    </span>
+                  )}
+                  <span className="text-gray text-base">0.00%</span>
                 </div>
               </div>
 
@@ -183,7 +235,7 @@ export default function PortfolioPage() {
                     key={r}
                     onClick={() => setRange(r)}
                     className={cn(
-                      "px-3 py-1.5 text-xs rounded-md cursor-pointer transition-colors",
+                      "px-4 py-2 text-sm rounded-md cursor-pointer transition-colors",
                       range === r
                         ? "bg-white/10 text-white"
                         : "text-gray hover:text-white"
@@ -227,21 +279,33 @@ export default function PortfolioPage() {
             {/* Total balance card */}
             <Card className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-white font-semibold text-sm">Total balance</h3>
+                <h3 className="text-white font-semibold text-base">Total balance</h3>
               </div>
 
-              <span className="text-white text-2xl font-bold block">{formattedTotal}</span>
+              {loading ? (
+                <div className="h-8 w-28 bg-white/6 rounded animate-pulse" />
+              ) : (
+                <span className="text-white text-3xl font-bold block">{formattedTotal}</span>
+              )}
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-gray text-xs">Portfolio balance</span>
-                  <span className="text-white text-xs font-medium">{formattedTotal}</span>
+                  <span className="text-gray text-sm">Portfolio balance</span>
+                  {loading ? (
+                    <div className="h-4 w-16 bg-white/6 rounded animate-pulse" />
+                  ) : (
+                    <span className="text-white text-sm font-medium">{formattedTotal}</span>
+                  )}
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-gray text-xs">USDC balance</span>
-                  <span className="text-white text-xs font-medium">
-                    ${parseFloat(usdcBalance).toFixed(2)}
-                  </span>
+                  <span className="text-gray text-sm">USDC balance</span>
+                  {usdcLoading ? (
+                    <div className="h-4 w-16 bg-white/6 rounded animate-pulse" />
+                  ) : (
+                    <span className="text-white text-sm font-medium">
+                      ${parseFloat(usdcBalance).toFixed(2)}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -252,7 +316,7 @@ export default function PortfolioPage() {
                   className="rounded-lg flex-1 gap-1.5 cursor-pointer"
                   onClick={handleDeposit}
                 >
-                  <ArrowDownToLine size={13} /> Deposit
+                  <ArrowDownToLine size={15} /> Deposit
                 </Button>
                 <Button
                   variant="outline"
@@ -260,7 +324,7 @@ export default function PortfolioPage() {
                   className="rounded-lg flex-1 gap-1.5 cursor-pointer"
                   onClick={() => setShowWithdraw(true)}
                 >
-                  <ArrowUpFromLine size={13} /> Withdraw
+                  <ArrowUpFromLine size={15} /> Withdraw
                 </Button>
               </div>
             </Card>
@@ -269,8 +333,8 @@ export default function PortfolioPage() {
             {createdProxy && (
               <Card className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <Bot size={14} className="text-lime" />
-                  <h3 className="text-white font-semibold text-sm">Your Proxy</h3>
+                  <Bot size={16} className="text-lime" />
+                  <h3 className="text-white font-semibold text-base">Your Proxy</h3>
                 </div>
                 <Link href={`/${createdProxy.handle}`}>
                   <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/4 transition-colors cursor-pointer">
@@ -288,10 +352,10 @@ export default function PortfolioPage() {
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm font-medium truncate">
+                      <p className="text-white text-base font-medium truncate">
                         {createdProxy.name}
                       </p>
-                      <p className="text-gray text-xs">
+                      <p className="text-gray text-sm">
                         {createdProxy.totalChats} chats &middot; {createdProxy.totalMessages} msgs
                       </p>
                     </div>
@@ -305,17 +369,17 @@ export default function PortfolioPage() {
             <Card className="space-y-3">
               <div className="flex items-center gap-2">
                 <span className="text-red-400 text-sm">&#10006;</span>
-                <h3 className="text-white font-semibold text-sm">Your referrals</h3>
+                <h3 className="text-white font-semibold text-base">Your referrals</h3>
               </div>
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-gray text-xs">No. of referrals</span>
-                  <span className="text-white text-sm font-semibold">0</span>
+                  <span className="text-gray text-sm">No. of referrals</span>
+                  <span className="text-white text-base font-semibold">0</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-gray text-xs">Referral fees earned</span>
-                  <span className="text-white text-sm font-semibold">$0.00</span>
+                  <span className="text-gray text-sm">Referral fees earned</span>
+                  <span className="text-white text-base font-semibold">$0.00</span>
                 </div>
               </div>
             </Card>
@@ -324,34 +388,34 @@ export default function PortfolioPage() {
 
         {/* Holdings table */}
         <div>
-          <h2 className="text-white font-semibold text-lg mb-4">Proxy Holdings</h2>
+          <h2 className="text-white font-semibold text-xl mb-4">Proxy Holdings</h2>
 
           {loading ? (
             <Card className="text-center py-8">
               <div className="w-8 h-8 border-2 border-lime/30 border-t-lime rounded-full animate-spin mx-auto mb-2" />
-              <p className="text-gray text-xs">Loading holdings...</p>
+              <p className="text-gray text-sm">Loading holdings...</p>
             </Card>
           ) : !walletAddress ? (
             <Card className="text-center py-8">
               <Wallet size={32} className="text-gray/30 mx-auto mb-2" />
-              <p className="text-gray text-sm">Connect your wallet to view holdings</p>
-              <p className="text-gray/60 text-xs mt-1">
+              <p className="text-gray text-base">Connect your wallet to view holdings</p>
+              <p className="text-gray/60 text-sm mt-1">
                 Your proxy token balances will appear here
               </p>
             </Card>
           ) : holdings.length === 0 ? (
             <Card className="text-center py-8">
               <Ghost size={32} className="text-gray/30 mx-auto mb-2" />
-              <p className="text-gray text-sm">No proxy tokens found</p>
-              <p className="text-gray/60 text-xs mt-1">
+              <p className="text-gray text-base">No proxy tokens found</p>
+              <p className="text-gray/60 text-sm mt-1">
                 Buy proxy tokens on the explore page to see them here
               </p>
             </Card>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-base">
                 <thead>
-                  <tr className="text-gray text-xs border-b border-white/6">
+                  <tr className="text-gray text-sm border-b border-white/6">
                     <th className="text-left pb-3 font-medium">Proxy</th>
                     <th className="text-left pb-3 font-medium">24h Trend</th>
                     <th className="text-left pb-3 font-medium">Messages</th>
@@ -374,7 +438,7 @@ export default function PortfolioPage() {
                             height={32}
                             className="w-8 h-8 rounded-lg object-cover"
                           />
-                          <span className="text-white font-medium text-[13px] group-hover:text-lime transition-colors">
+                          <span className="text-white font-medium text-sm group-hover:text-lime transition-colors">
                             {h.name}
                           </span>
                         </Link>
@@ -392,10 +456,10 @@ export default function PortfolioPage() {
                           {h.change24h.toFixed(2)}%
                         </span>
                       </td>
-                      <td className="py-3 text-gray text-sm">
+                      <td className="py-3 text-gray text-base">
                         {Math.floor(h.amount)} msgs
                       </td>
-                      <td className="py-3 text-white font-medium text-sm">
+                      <td className="py-3 text-white font-medium text-base">
                         ${h.value.toFixed(2)}
                       </td>
                       <td className="py-3 text-right">
@@ -404,9 +468,9 @@ export default function PortfolioPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 px-2 text-[11px] text-gray hover:text-white gap-1"
+                              className="h-8 px-3 text-xs text-gray hover:text-white gap-1.5"
                             >
-                              <MessageSquare size={12} /> Chat
+                              <MessageSquare size={14} /> Chat
                             </Button>
                           </Link>
                           <a
@@ -417,9 +481,9 @@ export default function PortfolioPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 px-2 text-[11px] text-gray hover:text-white gap-1"
+                              className="h-8 px-3 text-xs text-gray hover:text-white gap-1.5"
                             >
-                              <ExternalLink size={12} /> Trade
+                              <ExternalLink size={14} /> Trade
                             </Button>
                           </a>
                         </div>
@@ -430,10 +494,10 @@ export default function PortfolioPage() {
               </table>
 
               {/* Pagination placeholder */}
-              <div className="flex items-center justify-between mt-4 text-xs text-gray">
+              <div className="flex items-center justify-between mt-4 text-sm text-gray">
                 <div className="flex items-center gap-2">
                   <span>Rows</span>
-                  <select className="bg-white/6 border border-white/6 rounded px-2 py-1 text-white text-xs">
+                  <select className="bg-white/6 border border-white/6 rounded px-2 py-1 text-white text-sm">
                     <option>10</option>
                     <option>25</option>
                     <option>50</option>
@@ -447,23 +511,23 @@ export default function PortfolioPage() {
 
         {/* Recent Conversations */}
         <div>
-          <h2 className="text-white font-semibold text-lg mb-4">Recent Chats</h2>
+          <h2 className="text-white font-semibold text-xl mb-4">Recent Chats</h2>
 
           {activityLoading ? (
             <Card className="text-center py-8">
               <div className="w-8 h-8 border-2 border-lime/30 border-t-lime rounded-full animate-spin mx-auto mb-2" />
-              <p className="text-gray text-xs">Loading chats...</p>
+              <p className="text-gray text-sm">Loading chats...</p>
             </Card>
           ) : !user?.id ? (
             <Card className="text-center py-8">
               <MessageSquare size={32} className="text-gray/30 mx-auto mb-2" />
-              <p className="text-gray text-sm">Sign in to view your chat history</p>
+              <p className="text-gray text-base">Sign in to view your chat history</p>
             </Card>
           ) : recentChats.length === 0 ? (
             <Card className="text-center py-8">
               <MessageSquare size={32} className="text-gray/30 mx-auto mb-2" />
-              <p className="text-gray text-sm">No conversations yet</p>
-              <p className="text-gray/60 text-xs mt-1">
+              <p className="text-gray text-base">No conversations yet</p>
+              <p className="text-gray/60 text-sm mt-1">
                 Start chatting with a proxy to see your conversations here
               </p>
             </Card>
@@ -471,31 +535,31 @@ export default function PortfolioPage() {
             <div className="grid gap-2">
               {recentChats.map((chat) => (
                 <Link key={chat.id} href={`/${chat.proxyHandle}/chat`}>
-                  <Card className="flex items-center gap-3 p-3 hover:bg-white/4 transition-colors cursor-pointer">
+                    <Card className="flex items-center gap-3.5 p-4 hover:bg-white/4 transition-colors cursor-pointer">
                     {chat.proxyAvatar ? (
                       <Image
                         src={chat.proxyAvatar}
                         alt={chat.proxyName}
-                        width={36}
-                        height={36}
+                        width={40}
+                        height={40}
                         className="rounded-lg object-cover shrink-0"
                       />
                     ) : (
-                      <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center text-xs font-bold text-white shrink-0">
+                      <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-sm font-bold text-white shrink-0">
                         {chat.proxyName.charAt(0)}
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-white text-sm font-medium truncate">
+                        <span className="text-white text-base font-medium truncate">
                           {chat.title}
                         </span>
                       </div>
-                      <p className="text-gray text-xs mt-0.5">
+                      <p className="text-gray text-sm mt-0.5">
                         {chat.proxyName} &middot; {chat.totalMessages} msg{chat.totalMessages !== 1 ? "s" : ""} &middot; {formatTimeAgo(chat.updatedAt)}
                       </p>
                     </div>
-                    <ArrowUpRight size={14} className="text-gray shrink-0" />
+                    <ArrowUpRight size={16} className="text-gray shrink-0" />
                   </Card>
                 </Link>
               ))}
@@ -506,8 +570,14 @@ export default function PortfolioPage() {
 
       {showWithdraw && (
         <WithdrawModal
-          onClose={() => setShowWithdraw(false)}
-          onSuccess={() => getUsdcBalance().then(setUsdcBalance)}
+          onClose={() => {
+            setShowWithdraw(false);
+          }}
+          onSuccess={() => {
+            getUsdcBalance().then(setUsdcBalance);
+            setSuccessNotif({ type: "withdraw", amount: "" });
+            setTimeout(() => setSuccessNotif(null), 6000);
+          }}
         />
       )}
     </div>
