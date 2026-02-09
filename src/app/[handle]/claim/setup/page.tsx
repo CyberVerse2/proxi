@@ -55,6 +55,7 @@ export default function SetupPage() {
           const data = await res.json();
           setProxyData(data);
           if (data.ticker) setTicker(data.ticker);
+          if (data.chatPrice != null) setChatPrice(String(data.chatPrice));
         }
       } catch {
         // Fallback: we'll check auth on the client side
@@ -145,7 +146,7 @@ export default function SetupPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             privyId,
-            ...(chatPrice ? { price: parseFloat(chatPrice) } : {}),
+            ...(chatPrice ? { chatPrice: parseFloat(chatPrice) } : {}),
             ...(ticker.trim() ? { ticker: ticker.trim().toUpperCase() } : {}),
           }),
         });
@@ -354,7 +355,7 @@ export default function SetupPage() {
                 Configuration
               </h2>
               <p className="text-gray text-sm">
-                Set your chat pricing and token ticker.
+                Set your chat pricing and token ticker. You can claim your fees after setup.
               </p>
 
               <div className="space-y-4">
@@ -373,21 +374,6 @@ export default function SetupPage() {
                   <p className="text-gray/50 text-xs">
                     Users pay this amount in USDC for each message sent to your
                     proxy
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm text-gray font-medium">
-                    Token Ticker
-                  </label>
-                  <Input
-                    value={ticker}
-                    onChange={(e) => setTicker(e.target.value.toUpperCase())}
-                    placeholder="e.g. PROXI"
-                    maxLength={10}
-                  />
-                  <p className="text-gray/50 text-xs">
-                    The ticker symbol for your proxy&apos;s ERC-20 token
                   </p>
                 </div>
               </div>
@@ -410,7 +396,7 @@ export default function SetupPage() {
                       <Loader2 size={16} className="animate-spin" /> Saving...
                     </span>
                   ) : (
-                    "Complete Setup"
+                    "Complete Setup and Claim Fees"
                   )}
                 </Button>
               </div>

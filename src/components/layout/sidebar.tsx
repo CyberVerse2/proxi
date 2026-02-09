@@ -45,7 +45,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* Logo + Collapse toggle */}
       <div className="h-14 px-4 flex items-center justify-between border-b border-white/6">
         <div className="flex items-center gap-2">
-          <Image src="/tools/proxi-logo.png" alt="Proxi" width={collapsed ? 20 : 30} height={collapsed ? 20 : 30} className="shrink-0" />
+          <Image src="/image.png" alt="Proxi" width={collapsed ? 20 : 30} height={collapsed ? 20 : 30} className="shrink-0" />
           {!collapsed && <span className="font-heading text-white text-lg tracking-tight">PROXI.FUN</span>}
         </div>
         <button

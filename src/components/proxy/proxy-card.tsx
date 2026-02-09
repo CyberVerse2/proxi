@@ -4,14 +4,15 @@ import Link from 'next/link';
 import { BadgeCheck, Star } from 'lucide-react';
 import type { Proxy } from '@/lib/db/schema';
 import Image from 'next/image';
+import { DEFAULT_AVATAR, MESSAGE_PRICE_USD } from '@/lib/config/constants';
 
 interface ProxyCardProps {
   proxy: Proxy;
 }
 
 export function ProxyCard({ proxy }: ProxyCardProps) {
-  const imgSrc = proxy.avatarUrl || '/mock-avatar.jpg';
-  const price = proxy.price?.toFixed(2) ?? '0.00';
+  const imgSrc = proxy.avatarUrl || DEFAULT_AVATAR;
+  const chatPrice = proxy.chatPrice ?? MESSAGE_PRICE_USD;
   const change = proxy.priceChange24h?.toFixed(1) ?? '0.0';
   const isNegative = (proxy.priceChange24h ?? 0) < 0;
 
@@ -44,8 +45,8 @@ export function ProxyCard({ proxy }: ProxyCardProps) {
           priority
         />
 
-        {/* Top Expert Badge - lime */}
-        {proxy.status === 'live' && (
+        {/* Top Proxy Badge - only show for top proxies by chat count */}
+        {proxy.status === 'live' && (proxy.totalChats ?? 0) >= 50 && (
           <div
             className={`
               absolute top-3 left-3 z-10 flex items-center gap-2 px-3 py-[0.35rem]
@@ -55,7 +56,7 @@ export function ProxyCard({ proxy }: ProxyCardProps) {
             `}
           >
             <Star size={15} className="text-black" fill="currentColor" />
-            Top Expert
+            Top Proxy
           </div>
         )}
       </div>
@@ -92,7 +93,7 @@ export function ProxyCard({ proxy }: ProxyCardProps) {
           <span className="flex items-center gap-1 ml-auto shrink-0">
             <Star size={15} fill="currentColor" className="text-white/90" />
             <span className="text-white/90 text-base font-semibold leading-none min-w-[1.5em]">
-              {(proxy.rating ?? 0) > 0 ? (proxy.rating ?? 0).toFixed(1) : '5.0'}
+              {(proxy.rating ?? 0) > 0 ? (proxy.rating ?? 0).toFixed(1) : '—'}
             </span>
           </span>
         </div>
@@ -110,8 +111,8 @@ export function ProxyCard({ proxy }: ProxyCardProps) {
         {/* Price and change */}
         <div className="flex items-center justify-between text-[15px] font-bold mb-1">
           <div>
-            <span className="text-white">${price}</span>
-            <span className="text-white/50 font-normal text-xs"> / min</span>
+            <span className="text-white">${chatPrice.toFixed(2)}</span>
+            <span className="text-white/50 font-normal text-xs"> / msg</span>
           </div>
           <span className="text-lime">
             {isNegative ? '' : '+'}

@@ -12,8 +12,7 @@ import {
 import { getChatContext } from "@/lib/ai/chat";
 import { getOnChainTokenBalance } from "@/lib/chain/token";
 import { getPrivyWalletAddress } from "@/lib/auth/privy";
-
-const FREE_MESSAGES_PER_PROXY = 5;
+import { FREE_MESSAGES_PER_PROXY } from "@/lib/config/constants";
 
 /** Generate a short (3-6 word) conversation title from the first exchange */
 async function generateChatTitle(

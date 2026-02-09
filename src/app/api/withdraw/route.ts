@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { privyServer } from "@/lib/auth/privy";
 import { encodeFunctionData, parseUnits, parseAbi } from "viem";
+import { USDC_ADDRESS, USDC_DECIMALS, BASE_CHAIN_ID } from "@/lib/config/constants";
 
-const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-const USDC_DECIMALS = 6;
-const BASE_CAIP2 = "eip155:8453"; // Base chain
+const BASE_CAIP2 = `eip155:${BASE_CHAIN_ID}`;
 
 const ERC20_ABI = parseAbi([
   "function transfer(address to, uint256 amount) returns (bool)",

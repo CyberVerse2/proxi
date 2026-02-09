@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { DEFAULT_AVATAR } from "@/lib/config/constants";
 import {
   Wallet,
   Ghost,
@@ -224,7 +225,7 @@ export default function PortfolioPage() {
                       {formattedTotal}
                     </span>
                   )}
-                  <span className="text-gray text-base">0.00%</span>
+                  {/* Historical change data not yet available */}
                 </div>
               </div>
 
@@ -247,30 +248,12 @@ export default function PortfolioPage() {
               </div>
             </div>
 
-            {/* Chart */}
-            <div className="relative h-[160px] w-full">
-              <svg
-                viewBox="0 0 600 120"
-                className="w-full h-full"
-                preserveAspectRatio="none"
-              >
-                <defs>
-                  <linearGradient id="portfolioGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="rgb(190, 242, 100)" stopOpacity="0.15" />
-                    <stop offset="100%" stopColor="rgb(190, 242, 100)" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-                <path
-                  d="M0,90 Q50,88 100,85 T200,80 T300,75 T400,70 T500,65 T600,60 L600,120 L0,120 Z"
-                  fill="url(#portfolioGrad)"
-                />
-                <path
-                  d="M0,90 Q50,88 100,85 T200,80 T300,75 T400,70 T500,65 T600,60"
-                  fill="none"
-                  stroke="rgb(190, 242, 100)"
-                  strokeWidth="2"
-                />
-              </svg>
+            {/* Chart placeholder — historical price data not yet available */}
+            <div className="relative h-[60px] w-full flex items-end">
+              <div
+                className="w-full rounded-lg bg-lime/10"
+                style={{ height: totalValue > 0 ? "100%" : "4px" }}
+              />
             </div>
           </div>
 
@@ -368,20 +351,13 @@ export default function PortfolioPage() {
             {/* Referrals card */}
             <Card className="space-y-3">
               <div className="flex items-center gap-2">
-                <span className="text-red-400 text-sm">&#10006;</span>
-                <h3 className="text-white font-semibold text-base">Your referrals</h3>
+                <h3 className="text-white font-semibold text-base">Referrals</h3>
+                <span className="text-xs text-lime bg-lime/10 border border-lime/20 rounded-full px-2 py-0.5 font-medium">Coming Soon</span>
               </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray text-sm">No. of referrals</span>
-                  <span className="text-white text-base font-semibold">0</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray text-sm">Referral fees earned</span>
-                  <span className="text-white text-base font-semibold">$0.00</span>
-                </div>
-              </div>
+              <p className="text-gray text-sm">
+                Referral tracking and fee sharing is coming soon. Stay tuned!
+              </p>
             </Card>
           </div>
         </div>
@@ -432,7 +408,7 @@ export default function PortfolioPage() {
                       <td className="py-3">
                         <Link href={`/${h.handle}`} className="flex items-center gap-2.5">
                           <Image
-                            src={h.avatar || "/mock-avatar.jpg"}
+                            src={h.avatar || DEFAULT_AVATAR}
                             alt={h.name}
                             width={32}
                             height={32}
@@ -493,17 +469,9 @@ export default function PortfolioPage() {
                 </tbody>
               </table>
 
-              {/* Pagination placeholder */}
-              <div className="flex items-center justify-between mt-4 text-sm text-gray">
-                <div className="flex items-center gap-2">
-                  <span>Rows</span>
-                  <select className="bg-white/6 border border-white/6 rounded px-2 py-1 text-white text-sm">
-                    <option>10</option>
-                    <option>25</option>
-                    <option>50</option>
-                  </select>
-                </div>
-                <span>Page 1 of 1</span>
+              {/* Holdings count */}
+              <div className="flex items-center justify-end mt-4 text-sm text-gray">
+                <span>{holdings.length} holding{holdings.length !== 1 ? "s" : ""}</span>
               </div>
             </div>
           )}

@@ -4,20 +4,76 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import {
   LayoutGrid, Flame, Building2, Sparkles, HandCoins,
-  Layout, Activity, TrendingUp,
+  Layout, Activity, TrendingUp, type LucideIcon,
+  Tag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export const CATEGORIES = [
+/** Map icon name strings (from DB) to Lucide components */
+const ICON_MAP: Record<string, LucideIcon> = {
+  LayoutGrid,
+  Flame,
+  Building2,
+  Sparkles,
+  HandCoins,
+  Layout,
+  Activity,
+  TrendingUp,
+  Tag,
+};
+
+function resolveIcon(iconName?: string | null): LucideIcon {
+  if (iconName && ICON_MAP[iconName]) return ICON_MAP[iconName];
+  return Tag; // default icon for unknown categories
+}
+
+export interface CategoryItem {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+/** Built-in special categories (client-side filters, not from DB) */
+const SPECIAL_CATEGORIES: CategoryItem[] = [
   { id: "all", label: "All Proxies", icon: LayoutGrid },
   { id: "top", label: "Top Proxies", icon: Flame },
   { id: "trending", label: "Trending", icon: TrendingUp },
+];
+
+/** Fallback categories used when no DB categories are provided */
+const FALLBACK_CATEGORIES: CategoryItem[] = [
+  ...SPECIAL_CATEGORIES,
   { id: "founders", label: "Founders", icon: Building2 },
   { id: "influencers", label: "Influencers", icon: Sparkles },
   { id: "investors", label: "Investors", icon: HandCoins },
   { id: "design", label: "UI/UX Design", icon: Layout },
   { id: "athletes", label: "Athletes", icon: Activity },
 ];
+
+/** Convert a DB category row into a CategoryItem */
+export function dbCategoryToItem(dbCat: {
+  id: string;
+  name: string;
+  slug: string;
+  icon: string | null;
+}): CategoryItem {
+  return {
+    id: dbCat.id,
+    label: dbCat.name,
+    icon: resolveIcon(dbCat.icon),
+  };
+}
+
+/** Merge special (client-side) categories with DB categories */
+export function buildCategoryList(
+  dbCategories?: { id: string; name: string; slug: string; icon: string | null }[],
+): CategoryItem[] {
+  if (!dbCategories || dbCategories.length === 0) return FALLBACK_CATEGORIES;
+  return [...SPECIAL_CATEGORIES, ...dbCategories.map(dbCategoryToItem)];
+}
+
+// Keep the old export for backwards compatibility
+export const CATEGORIES = FALLBACK_CATEGORIES;
 
 interface TabSectionProps {
   active?: string;
@@ -29,6 +85,8 @@ interface TabSectionProps {
   seeAllSubtitle?: string;
   /** Use compact pill style (explore page) vs icon-above-text (landing) */
   variant?: "default" | "compact";
+  /** Categories to display. Defaults to built-in list if not provided. */
+  categories?: CategoryItem[];
 }
 
 export function TabSection({
@@ -38,14 +96,16 @@ export function TabSection({
   seeAllHref,
   seeAllSubtitle = "Featured Proxies",
   variant = "default",
+  categories,
 }: TabSectionProps) {
-  const activeCat = CATEGORIES.find((c) => c.id === active) ?? CATEGORIES[0];
+  const cats = categories ?? FALLBACK_CATEGORIES;
+  const activeCat = cats.find((c) => c.id === active) ?? cats[0];
 
   if (variant === "compact") {
     return (
       <div className="space-y-3">
         <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
-          {CATEGORIES.map((cat) => (
+          {cats.map((cat) => (
             <button
               key={cat.id}
               onClick={() => onChange?.(cat.id)}
@@ -69,7 +129,7 @@ export function TabSection({
     <div className="space-y-0">
       {/* Tab navigation - icon above text */}
       <div className="flex gap-8 overflow-x-auto scrollbar-none justify-start pb-0">
-        {CATEGORIES.map((cat) => (
+        {cats.map((cat) => (
           <button
             key={cat.id}
             onClick={() => onChange?.(cat.id)}

@@ -19,5 +19,6 @@ export async function GET(request: Request) {
     xHandle: proxy.xHandle,
     creatorId: proxy.creatorId,
     ticker: proxy.ticker,
+    chatPrice: proxy.chatPrice,
   });
 }

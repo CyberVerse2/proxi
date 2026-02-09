@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ProxyCard } from '@/components/proxy/proxy-card';
 import type { Proxy } from '@/lib/db/schema';
+import { CREATOR_FEE_PERCENT } from '@/lib/config/constants';
 
 /* ─── Main Hero ─── */
 interface HeroSectionProps {
@@ -52,7 +53,7 @@ export function HeroSection({ proxies = [] }: HeroSectionProps) {
         style={{ animationDelay: '0.2s' }}
       >
         Create an AI clone of yourself that anyone can talk to.
-        Each clone gets its own token — you earn 50% of fees forever.
+        Each clone gets its own token — you earn {CREATOR_FEE_PERCENT}% of fees forever.
       </p>
 
       {/* Buttons */}

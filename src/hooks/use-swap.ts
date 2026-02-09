@@ -4,13 +4,16 @@ import { useState, useCallback } from "react";
 import { useWallets, useSendTransaction } from "@privy-io/react-auth";
 import { parseUnits, formatUnits, encodeFunctionData, parseAbi } from "viem";
 
-// USDC on Base — 6 decimals
-const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-const USDC_DECIMALS = 6;
+import {
+  USDC_ADDRESS,
+  USDC_DECIMALS,
+  MESSAGE_PRICE_USD,
+} from "@/lib/config/constants";
+
 const TOKEN_DECIMALS = 18; // proxy tokens are 18 decimals
 
-// Fixed pricing: 1 message = $0.10 USDC
-export const MESSAGE_PRICE_USD = 0.1;
+// Re-export so existing imports from this module keep working
+export { MESSAGE_PRICE_USD };
 
 const ERC20_ABI = parseAbi([
   "function balanceOf(address) view returns (uint256)",
@@ -35,7 +38,8 @@ interface SwapQuote {
   totalNetworkFee: string;
 }
 
-export function useSwap() {
+export function useSwap(messagePriceUsd?: number) {
+  const msgPrice = messagePriceUsd ?? MESSAGE_PRICE_USD;
   const { wallets } = useWallets();
   const { sendTransaction } = useSendTransaction();
   const [loading, setLoading] = useState(false);
@@ -59,11 +63,11 @@ export function useSwap() {
     ): Promise<{ buyAmount: string; sellAmount: string } | null> => {
       setError(null);
       try {
-        // Buy: convert messages to USDC cost (messages × $0.10)
+        // Buy: convert messages to USDC cost (messages × per-msg price)
         // Sell: amount is in tokens (18 decimals)
         let sellAmount: string;
         if (mode === "buy") {
-          const usdcCost = parseFloat(amount) * MESSAGE_PRICE_USD;
+          const usdcCost = parseFloat(amount) * msgPrice;
           sellAmount = parseUnits(usdcCost.toFixed(USDC_DECIMALS), USDC_DECIMALS).toString();
         } else {
           sellAmount = parseUnits(amount, TOKEN_DECIMALS).toString();
@@ -111,7 +115,7 @@ export function useSwap() {
       try {
         let sellAmount: string;
         if (mode === "buy") {
-          const usdcCost = parseFloat(amount) * MESSAGE_PRICE_USD;
+          const usdcCost = parseFloat(amount) * msgPrice;
           sellAmount = parseUnits(usdcCost.toFixed(USDC_DECIMALS), USDC_DECIMALS).toString();
         } else {
           sellAmount = parseUnits(amount, TOKEN_DECIMALS).toString();
@@ -175,7 +179,7 @@ export function useSwap() {
         const sellTokenAddress = mode === "buy" ? USDC_ADDRESS : tokenAddress;
         let sellAmountWei: bigint;
         if (mode === "buy") {
-          const usdcCost = parseFloat(amount) * MESSAGE_PRICE_USD;
+          const usdcCost = parseFloat(amount) * msgPrice;
           sellAmountWei = parseUnits(usdcCost.toFixed(USDC_DECIMALS), USDC_DECIMALS);
         } else {
           sellAmountWei = parseUnits(amount, TOKEN_DECIMALS);

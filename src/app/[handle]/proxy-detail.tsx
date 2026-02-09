@@ -26,7 +26,8 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
-import { useSwap, MESSAGE_PRICE_USD } from '@/hooks/use-swap';
+import { useSwap } from '@/hooks/use-swap';
+import { MESSAGE_PRICE_USD, MIN_BUY_MESSAGES, DEFAULT_AVATAR, SLIPPAGE_BPS, SWAP_FEE_BPS } from '@/lib/config/constants';
 import type { TokenMarketData } from '@/lib/chain/token';
 
 interface ProxyData {
@@ -38,6 +39,7 @@ interface ProxyData {
   ticker: string | null;
   status: string;
   tokenAddress: string | null;
+  chatPrice: number | null;
   price: number | null;
   priceChange24h: number | null;
   marketCap: number | null;
@@ -104,7 +106,7 @@ export function ProxyDetail({
     getTokenBalance,
     loading: swapLoading,
     error: swapError
-  } = useSwap();
+  } = useSwap(proxy.chatPrice ?? undefined);
 
   // Balances & pricing
   const [usdcBalance, setUsdcBalance] = useState('0');
@@ -143,11 +145,11 @@ export function ProxyDetail({
     refreshBalances();
   }, [refreshBalances]);
 
-  // Fetch how many tokens = 1 message ($0.10 USDC worth)
+  // Fetch how many tokens = 1 message (proxy's chat price in USDC)
   useEffect(() => {
     if (!proxy.tokenAddress) return;
     setPricingLoading(true);
-    // Ask 0x: if I sell $0.10 USDC, how many tokens do I get?
+    // Ask 0x: if I sell the chat-price worth of USDC, how many tokens do I get?
     getPrice(proxy.tokenAddress, '1', 'buy')
       .then((result) => {
         if (result) {
@@ -159,12 +161,13 @@ export function ProxyDetail({
       .finally(() => setPricingLoading(false));
   }, [proxy.tokenAddress, getPrice]);
 
+  // Per-proxy chat price (creator-configured, falls back to global default)
+  const msgPrice = proxy.chatPrice ?? MESSAGE_PRICE_USD;
+
   // Derive message count and USD cost from either denomination
   const rawAmount = parseFloat(amount) || 0;
-  const msgCount = denomination === 'messages' ? rawAmount : rawAmount / MESSAGE_PRICE_USD;
-  const usdcCost = denomination === 'messages' ? rawAmount * MESSAGE_PRICE_USD : rawAmount;
-
-  const MIN_BUY_MESSAGES = 5;
+  const msgCount = denomination === 'messages' ? rawAmount : rawAmount / msgPrice;
+  const usdcCost = denomination === 'messages' ? rawAmount * msgPrice : rawAmount;
 
   const handleSwap = async () => {
     if (!proxy.tokenAddress || !amount || msgCount <= 0) return;
@@ -267,7 +270,7 @@ export function ProxyDetail({
 
   const handle = proxy.xHandle;
   const name = proxy.displayName ?? handle;
-  const avatar = proxy.avatarUrl ?? '/mock-avatar.jpg';
+  const avatar = proxy.avatarUrl ?? DEFAULT_AVATAR;
   const rating = proxy.rating ?? 0;
   const price = proxy.price ?? 0;
   const priceChange = proxy.priceChange24h ?? 0;
@@ -985,7 +988,7 @@ export function ProxyDetail({
                     <div className="h-5 w-48 bg-white/6 rounded animate-pulse" />
                   ) : tokensPerMessage ? (
                     <p className="text-white text-sm font-medium">
-                      {tokensPerMessage} tokens <span className="text-gray">($0.10)</span> = 1
+                      {tokensPerMessage} tokens <span className="text-gray">(${msgPrice.toFixed(2)})</span> = 1
                       message
                     </p>
                   ) : null}
@@ -1028,12 +1031,12 @@ export function ProxyDetail({
                       onClick={() => {
                         if (denomination === 'messages') {
                           // Convert current messages to USD
-                          const usd = rawAmount * MESSAGE_PRICE_USD;
+                          const usd = rawAmount * msgPrice;
                           setAmount(usd > 0 ? usd.toFixed(2) : '1');
                           setDenomination('usd');
                         } else {
                           // Convert current USD to messages
-                          const msgs = Math.round(rawAmount / MESSAGE_PRICE_USD);
+                          const msgs = Math.round(rawAmount / msgPrice);
                           setAmount(msgs > 0 ? String(msgs) : '5');
                           setDenomination('messages');
                         }
@@ -1212,7 +1215,7 @@ export function ProxyDetail({
                 )}
 
                 <p className="text-gray/40 text-[11px] text-center flex items-center justify-center gap-1.5">
-                  <Info size={10} /> $0.10/msg &middot; 1% fee &middot; 1% slippage
+                  <Info size={10} /> ${msgPrice.toFixed(2)}/msg &middot; {parseInt(SWAP_FEE_BPS) / 100}% fee &middot; {parseInt(SLIPPAGE_BPS) / 100}% slippage
                 </p>
               </>
             )}

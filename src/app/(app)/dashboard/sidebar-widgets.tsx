@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import type { Proxy } from "@/lib/db/schema";
+import { DEFAULT_AVATAR } from "@/lib/config/constants";
 
 /* ================================================================
    Leaderboard Widget
@@ -158,7 +159,7 @@ export function WatchlistWidget() {
               <SidebarRow
                 key={p.id}
                 name={p.displayName || p.xHandle}
-                avatar={p.avatarUrl || "/mock-avatar.jpg"}
+                avatar={p.avatarUrl || DEFAULT_AVATAR}
                 price={p.price ?? 0}
                 change={p.priceChange24h ?? 0}
                 href={`/${p.xHandle}`}

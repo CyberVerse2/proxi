@@ -18,7 +18,11 @@ const delaGothic = Dela_Gothic_One({
 export const metadata: Metadata = {
   title: 'Proxi — Clone Yourself. Tokenize It.',
   description:
-    'Build an AI version of you powered by your X data. Let the world chat with your clone.'
+    'Build an AI version of you powered by your X data. Let the world chat with your clone.',
+  icons: {
+    icon: '/image.png',
+    apple: '/image.png',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

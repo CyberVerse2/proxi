@@ -151,7 +151,8 @@ export async function handleCreateMention(
   }
 
   // Step 2: Create Privy user with embedded wallet (server-side)
-  let walletAddress: string | undefined;
+  // This is required — without a wallet we can't deploy a token or collect fees
+  let walletAddress: string;
   try {
     const privyResult = await createUserWithWallet(authorHandle, xUser.id);
     walletAddress = privyResult.walletAddress;
@@ -170,11 +171,15 @@ export async function handleCreateMention(
       `[bot] Created Privy user + wallet for @${authorHandle}: ${walletAddress}`,
     );
   } catch (privyErr) {
-    // Non-fatal: continue without wallet — token deployment will be skipped
     console.error(
       `[bot] Failed to create Privy wallet for @${authorHandle}:`,
       privyErr,
     );
+    await sendTweet(
+      `@${authorHandle} Something went wrong setting up your account. Please try again in a few minutes!`,
+      tweetId,
+    );
+    return;
   }
 
   // Step 4: Create proxy record (unclaimed — creatorId is set when user claims)
@@ -186,13 +191,7 @@ export async function handleCreateMention(
     status: "building",
   });
 
-  // Step 5: Send Reply 1 (acknowledgment)
-  await sendTweet(
-    `@${authorHandle} 🔥 Building your AI proxy now!\n\nI'm analyzing your top posts, learning your voice, and creating your digital twin. This usually takes 2-3 minutes.\n\nI'll reply here when it's ready. Stay tuned!`,
-    tweetId,
-  );
-
-  // Step 6: Dispatch background task via Trigger.dev (with walletAddress)
+  // Step 5: Dispatch background task via Trigger.dev (with walletAddress)
   try {
     const handle = await tasks.trigger<typeof ingestProxy>("ingest-proxy", {
       proxyId: proxy.id,

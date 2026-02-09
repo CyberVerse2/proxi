@@ -7,6 +7,7 @@ import { useChat } from '@/hooks/use-chat';
 import { useAuth } from '@/hooks/use-auth';
 import Image from 'next/image';
 import { ReviewModal } from './review-modal';
+import { DEFAULT_AVATAR, FREE_MESSAGES_PER_PROXY, LOW_MESSAGE_THRESHOLD } from '@/lib/config/constants';
 
 interface ChatClientProps {
   handle: string;
@@ -161,7 +162,7 @@ export function ChatClient({
 
   const scrollToBottom = () => bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
 
-  const avatar = avatarUrl ?? '/mock-avatar.jpg';
+  const avatar = avatarUrl ?? DEFAULT_AVATAR;
   const name = displayName ?? handle;
   const userName = xHandle ?? 'You';
   const userAvatar = xProfileImageUrl ?? null;
@@ -232,11 +233,11 @@ export function ChatClient({
               <p className="text-white/60 text-sm mt-1 max-w-[380px] mx-auto line-clamp-1">{bio}</p>
             )}
             {credits && !credits.unlimited && (() => {
-              // Token holder with 10+ messages — no counter needed
-              if (credits.hasTokens && credits.messagesOwned >= 10) return null;
+              // Token holder with enough messages — no counter needed
+              if (credits.hasTokens && credits.messagesOwned >= LOW_MESSAGE_THRESHOLD) return null;
 
-              // Token holder running low (< 10 messages)
-              if (credits.hasTokens && credits.messagesOwned < 10) {
+              // Token holder running low
+              if (credits.hasTokens && credits.messagesOwned < LOW_MESSAGE_THRESHOLD) {
                 return (
                   <div className="flex items-center gap-2 mt-2">
                     <span className="text-yellow-400/60 text-xs">
@@ -388,7 +389,7 @@ export function ChatClient({
                   <Coins size={16} />
                   <span>
                     {paymentRequired === "insufficient_tokens"
-                      ? "You've used your 5 free messages. Hold tokens to keep chatting."
+                      ? `You've used your ${FREE_MESSAGES_PER_PROXY} free messages. Hold tokens to keep chatting.`
                       : "Connect a wallet to continue chatting."}
                   </span>
                 </div>

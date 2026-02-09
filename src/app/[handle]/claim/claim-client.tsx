@@ -249,7 +249,7 @@ export function ClaimClient({
                   Claim Your Proxy
                 </h2>
                 <p className="text-sm text-gray">
-                  Are you @{proxy.xHandle}? Sign in with X to claim your earned fees (₳{formatCompact(feeData?.totalUsd ?? 0)} so far) and start earning more.
+                  Are you @{proxy.xHandle}? Sign in with X to claim your earned fees (${formatCompact(feeData?.totalUsd ?? 0)} so far) and start earning more.
                 </p>
               </div>
               <Button onClick={login} className="w-full rounded-xl h-11">

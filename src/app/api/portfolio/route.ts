@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { getTokenPrice } from "@/lib/chain/token";
 import { baseClient } from "@/lib/chain/config";
 import { parseAbi } from "viem";
+import { DEFAULT_AVATAR } from "@/lib/config/constants";
 
 const ERC20_ABI = parseAbi([
   "function balanceOf(address owner) view returns (uint256)",
@@ -59,7 +60,7 @@ export async function GET(request: Request) {
           id: proxy.id,
           name: proxy.displayName ?? proxy.xHandle,
           handle: proxy.xHandle,
-          avatar: proxy.avatarUrl ?? "/mock-avatar.jpg",
+          avatar: proxy.avatarUrl ?? DEFAULT_AVATAR,
           amount: Math.round(amount),
           value: Math.round(value * 100) / 100,
           change24h: proxy.priceChange24h ?? 0,

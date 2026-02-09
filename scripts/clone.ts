@@ -282,24 +282,23 @@ async function main() {
   } else {
     console.log(`\n🚀 Triggering ingest-proxy task...`);
 
+    if (!walletAddress) {
+      console.error(`\n❌ Wallet address is required for token deployment. Use --wallet <address>.`);
+      process.exit(1);
+    }
+
     const payload: {
       proxyId: string;
       xHandle: string;
       maxTweets?: number;
-      walletAddress?: string;
+      walletAddress: string;
     } = {
       proxyId,
       xHandle: cleanHandle,
+      walletAddress,
     };
     if (maxTweets) payload.maxTweets = maxTweets;
-    if (walletAddress && !skipToken) {
-      payload.walletAddress = walletAddress;
-      console.log(`   Token deployment enabled (wallet: ${walletAddress})`);
-    } else if (skipToken) {
-      console.log(`   Token deployment skipped (--skip-token)`);
-    } else {
-      console.log(`   Token deployment skipped (no wallet address)`);
-    }
+    console.log(`   Token deployment enabled (wallet: ${walletAddress})`);
 
     const run = await tasks.trigger<typeof ingestProxy>(
       "ingest-proxy",

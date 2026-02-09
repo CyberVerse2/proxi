@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { DEFAULT_AVATAR } from "@/lib/config/constants";
 import { ArrowRight, ArrowLeft, Check, Mic, Brain, Lock, Cog, MessageSquare, Loader2, Upload, Sparkles, Send, ArrowUp, Square, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -442,7 +443,7 @@ function ConfigStep({
   privyId: string | null;
   onRefresh: () => Promise<Proxy | null>;
 }) {
-  const [price, setPrice] = useState(proxy?.price?.toString() ?? "0");
+  const [price, setPrice] = useState(proxy?.chatPrice?.toString() ?? "0.10");
   const [ticker, setTicker] = useState(proxy?.ticker ?? "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -457,7 +458,7 @@ function ConfigStep({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           privyId,
-          price: parseFloat(price) || 0,
+          chatPrice: parseFloat(price) || 0.1,
           ticker: ticker.trim().toUpperCase() || null,
         }),
       });
@@ -573,7 +574,7 @@ function TestChatStep({
       <div className="border border-white/6 rounded-xl overflow-hidden">
         <div className="bg-white/4 px-4 py-2.5 flex items-center gap-2 border-b border-white/6">
           <img
-            src={proxy.avatarUrl ?? "/mock-avatar.jpg"}
+            src={proxy.avatarUrl ?? DEFAULT_AVATAR}
             alt={handle}
             className="w-6 h-6 rounded-full object-cover"
           />

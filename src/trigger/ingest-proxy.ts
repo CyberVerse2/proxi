@@ -22,7 +22,7 @@ interface IngestProxyPayload {
   /** Max tweets to fetch. Defaults to 500. */
   maxTweets?: number;
   /** Creator's wallet address — used to deploy their token after ingestion. */
-  walletAddress?: string;
+  walletAddress: string;
 }
 
 export const ingestProxy = task({
@@ -44,7 +44,7 @@ export const ingestProxy = task({
     concurrencyLimit: 2,
   },
 
-  run: async (payload: IngestProxyPayload) => {
+  run: async (payload: IngestProxyPayload, { ctx }) => {
     const { proxyId, xHandle, tweetId, maxTweets, walletAddress } = payload;
 
     logger.info("Starting proxy ingestion", { proxyId, xHandle, maxTweets });
@@ -90,48 +90,42 @@ export const ingestProxy = task({
         topSelected: result.topSelected,
       });
 
-      // Deploy token (if wallet provided and not already deployed — idempotent)
+      // Deploy token — required for proxy to go live
       let tokenInfo: { tokenAddress: string; ticker: string } | undefined;
-      if (walletAddress) {
-        try {
-          const proxy = await getProxyById(proxyId);
-          if (proxy && !proxy.tokenAddress) {
-            logger.info("Deploying token for proxy", { proxyId, walletAddress });
-            const tokenResult = await deployProxyToken({
-              name: proxy.displayName ?? xHandle,
-              symbol: proxy.ticker ?? xHandle.toUpperCase().slice(0, 5),
-              proxyId,
-              creatorAddress: walletAddress,
-              imageUrl: proxy.avatarUrl ?? undefined,
-              description: proxy.bio ?? undefined,
-            });
-            tokenInfo = {
-              tokenAddress: tokenResult.tokenAddress,
-              ticker: tokenResult.ticker,
-            };
-            logger.info("Token deployed", {
-              proxyId,
-              tokenAddress: tokenResult.tokenAddress,
-              ticker: tokenResult.ticker,
-              txHash: tokenResult.txHash,
-            });
-          } else if (proxy?.tokenAddress) {
-            logger.info("Token already deployed, skipping", {
-              proxyId,
-              tokenAddress: proxy.tokenAddress,
-            });
-            tokenInfo = {
-              tokenAddress: proxy.tokenAddress,
-              ticker: proxy.ticker ?? xHandle.toUpperCase().slice(0, 5),
-            };
-          }
-        } catch (tokenErr) {
-          // Non-fatal: log but continue to send completion tweet without token info
-          logger.error("Token deployment failed", {
-            proxyId,
-            error: tokenErr instanceof Error ? tokenErr.message : String(tokenErr),
-          });
-        }
+      const proxy = await getProxyById(proxyId);
+
+      if (proxy?.tokenAddress) {
+        // Already deployed (e.g. retry after partial success)
+        logger.info("Token already deployed, skipping", {
+          proxyId,
+          tokenAddress: proxy.tokenAddress,
+        });
+        tokenInfo = {
+          tokenAddress: proxy.tokenAddress,
+          ticker: proxy.ticker ?? xHandle.toUpperCase().slice(0, 5),
+        };
+      } else {
+        logger.info("Deploying token for proxy", { proxyId, walletAddress });
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://proxi.fun";
+        const displayName = proxy?.displayName ?? xHandle;
+        const tokenResult = await deployProxyToken({
+          name: displayName,
+          symbol: proxy?.ticker ?? xHandle.toUpperCase().slice(0, 5),
+          proxyId,
+          creatorAddress: walletAddress,
+          imageUrl: proxy?.avatarUrl ?? undefined,
+          description: `Digital clone of ${displayName}. Chat with me at ${appUrl}/${xHandle}`,
+        });
+        tokenInfo = {
+          tokenAddress: tokenResult.tokenAddress,
+          ticker: tokenResult.ticker,
+        };
+        logger.info("Token deployed", {
+          proxyId,
+          tokenAddress: tokenResult.tokenAddress,
+          ticker: tokenResult.ticker,
+          txHash: tokenResult.txHash,
+        });
       }
 
       // Send completion tweet as a reply to the original mention
@@ -163,18 +157,32 @@ export const ingestProxy = task({
         // Swallow — don't let logging failures mask the real error
       }
 
+      const maxAttempts = 3; // matches retry.maxAttempts above
+      const isLastAttempt = ctx.attempt.number >= maxAttempts;
+
       logger.error("Proxy ingestion failed", {
         proxyId,
         xHandle,
+        attempt: ctx.attempt.number,
+        isLastAttempt,
         error: error instanceof Error ? error.message : String(error),
       });
 
-      // Notify the user on final failure (only if this is likely the last attempt)
-      if (tweetId) {
-        await sendTweet(
-          `@${xHandle} Sorry, something went wrong while building your proxy. Our team has been notified. Please try again later!`,
-          tweetId,
-        ).catch(() => {}); // Swallow tweet errors on failure path
+      // On final attempt: mark proxy as failed and notify the user
+      if (isLastAttempt) {
+        try {
+          const { updateProxy } = await import("@/lib/db/queries");
+          await updateProxy(proxyId, { status: "failed" });
+        } catch {
+          // Don't mask the real error
+        }
+
+        if (tweetId) {
+          await sendTweet(
+            `@${xHandle} Sorry, something went wrong while building your proxy. Our team has been notified. Please try again later!`,
+            tweetId,
+          ).catch(() => {});
+        }
       }
 
       throw error; // Re-throw so Trigger.dev retries

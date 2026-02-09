@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getProxyByHandle } from "@/lib/db/queries";
 import { TopNav } from "@/components/layout/top-nav";
+import { DEFAULT_AVATAR } from "@/lib/config/constants";
 
 interface Props {
   params: Promise<{ handle: string }>;
@@ -89,7 +90,7 @@ export default async function VisualizeBrainPage({ params }: Props) {
           {/* Header */}
           <div className="flex items-center gap-5 mb-10">
             <img
-              src={proxy.avatarUrl ?? "/mock-avatar.jpg"}
+              src={proxy.avatarUrl ?? DEFAULT_AVATAR}
               alt={proxy.displayName ?? handle}
               className="w-16 h-16 rounded-xl object-cover border border-white/[0.06]"
             />

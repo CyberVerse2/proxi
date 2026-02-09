@@ -1,15 +1,19 @@
 import { NextResponse } from "next/server";
+import {
+  BASE_CHAIN_ID,
+  USDC_ADDRESS,
+  SWAP_FEE_BPS,
+  SLIPPAGE_BPS,
+  ZX_API_BASE,
+} from "@/lib/config/constants";
 
 const ZX_API_KEY = process.env["0X_API_KEY"] ?? "";
-const BASE_CHAIN_ID = 8453;
-// USDC on Base (6 decimals)
-const USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 
 // Affiliate fee config — 1% fee sent to the platform wallet in the sell token
-const SWAP_FEE_RECIPIENT =
-  process.env.PLATFORM_WALLET_ADDRESS ??
-  "0x85812b10E4789F8BbCF34fC818809480DfA47b64";
-const SWAP_FEE_BPS = "100"; // 1% (100 basis points)
+const SWAP_FEE_RECIPIENT = process.env.PLATFORM_WALLET_ADDRESS;
+if (!SWAP_FEE_RECIPIENT) {
+  console.warn("[swap] PLATFORM_WALLET_ADDRESS not set — swap fees will not be collected");
+}
 
 /**
  * GET /api/swap?type=price|quote&mode=buy|sell&tokenAddress=0x...&sellAmount=123&taker=0x...
@@ -45,19 +49,22 @@ export async function GET(request: Request) {
 
   // Build 0x request
   const isBuy = mode === "buy";
-  const sellToken = isBuy ? USDC : tokenAddress;
-  const buyToken = isBuy ? tokenAddress : USDC;
+  const sellToken = isBuy ? USDC_ADDRESS : tokenAddress;
+  const buyToken = isBuy ? tokenAddress : USDC_ADDRESS;
 
   const params = new URLSearchParams({
     chainId: String(BASE_CHAIN_ID),
     sellToken,
     buyToken,
     sellAmount,
-    slippageBps: "100", // 1% slippage
-    // Affiliate fee — collect in the sell token and send to platform wallet
-    swapFeeRecipient: SWAP_FEE_RECIPIENT,
-    swapFeeBps: SWAP_FEE_BPS,
-    swapFeeToken: sellToken,
+    slippageBps: SLIPPAGE_BPS,
+    ...(SWAP_FEE_RECIPIENT
+      ? {
+          swapFeeRecipient: SWAP_FEE_RECIPIENT,
+          swapFeeBps: SWAP_FEE_BPS,
+          swapFeeToken: sellToken,
+        }
+      : {}),
   });
 
   // For quote, taker is required
@@ -67,8 +74,8 @@ export async function GET(request: Request) {
 
   const endpoint =
     type === "quote"
-      ? "https://api.0x.org/swap/allowance-holder/quote"
-      : "https://api.0x.org/swap/allowance-holder/price";
+      ? `${ZX_API_BASE}/quote`
+      : `${ZX_API_BASE}/price`;
 
   try {
     const res = await fetch(`${endpoint}?${params.toString()}`, {

@@ -3,16 +3,24 @@
 import { useState, useMemo } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { TabSection } from "@/components/explore/category-tabs";
+import { TabSection, buildCategoryList } from "@/components/explore/category-tabs";
 import { ProxyRow } from "@/components/explore/proxy-row";
 import type { Proxy } from "@/lib/db/schema";
+
+interface DbCategory {
+  id: string;
+  name: string;
+  slug: string;
+  icon: string | null;
+}
 
 interface ExplorePageClientProps {
   topProxies: Proxy[];
   trendingProxies: Proxy[];
+  dbCategories?: DbCategory[];
 }
 
-export function ExplorePageClient({ topProxies, trendingProxies }: ExplorePageClientProps) {
+export function ExplorePageClient({ topProxies, trendingProxies, dbCategories }: ExplorePageClientProps) {
   const [category, setCategory] = useState("all");
   const [search, setSearch] = useState("");
 
@@ -57,7 +65,12 @@ export function ExplorePageClient({ topProxies, trendingProxies }: ExplorePageCl
         </div>
       </div>
 
-      <TabSection variant="compact" active={category} onChange={setCategory} />
+      <TabSection
+        variant="compact"
+        active={category}
+        onChange={setCategory}
+        categories={buildCategoryList(dbCategories)}
+      />
 
       <div className="space-y-8">
         <ProxyRow

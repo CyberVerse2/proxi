@@ -96,7 +96,7 @@ export async function deployProxyToken(
     image: imageUrl ?? "",
     tokenAdmin: deployerAddress,
     metadata: {
-      description: description ?? `AI proxy token for ${name} on Proxi`,
+      description: description ?? `Digital clone of ${name}. Chat with me at proxi.fun`,
     },
     context: {
       interface: "Proxi",
@@ -125,7 +125,7 @@ export async function deployProxyToken(
     vault: {
       percentage: 30, // 30% of total supply
       lockupDuration: 15_552_000, // 6 months (180 days in seconds)
-      vestingDuration: 0, // all unlocks at once
+      vestingDuration: 15_552_000, // linear vesting over the full lockup period
       recipient: creatorAddress as `0x${string}`, // Creator receives the vaulted tokens
     },
   });

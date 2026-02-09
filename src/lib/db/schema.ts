@@ -44,6 +44,7 @@ export const proxies = pgTable("proxies", {
   status: proxyStatusEnum("status").default("pending").notNull(),
   categoryId: uuid("category_id").references(() => categories.id),
   tokenAddress: varchar("token_address", { length: 42 }),
+  chatPrice: doublePrecision("chat_price").default(0.1),
   price: doublePrecision("price").default(0),
   priceChange24h: doublePrecision("price_change_24h").default(0),
   marketCap: doublePrecision("market_cap").default(0),

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { DEFAULT_AVATAR } from '@/lib/config/constants';
 import Link from 'next/link';
 import {
   Settings,
@@ -78,7 +79,7 @@ export default function MyProxyPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <img
-            src={proxy.avatarUrl ?? '/mock-avatar.jpg'}
+            src={proxy.avatarUrl ?? DEFAULT_AVATAR}
             alt={proxy.displayName ?? 'My Proxy'}
             className="w-14 h-14 rounded-2xl object-cover"
           />

@@ -14,7 +14,7 @@ export function Footer() {
     <footer className="max-w-[1100px] mx-auto px-6 md:px-10 py-10 border-t border-white/4">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-5">
         <p className="text-gray text-sm">
-          © 2026 Proxi. Built on Base.
+          © {new Date().getFullYear()} Proxi. Built on Base.
         </p>
 
         <ul className="flex gap-6 list-none">

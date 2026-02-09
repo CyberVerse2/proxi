@@ -53,13 +53,21 @@ export async function POST(request: Request) {
     });
   }
 
+  // Wallet is required for token deployment
+  if (!user.walletAddress) {
+    return NextResponse.json(
+      { error: "No wallet address found. Please reconnect your account." },
+      { status: 400 }
+    );
+  }
+
   // Trigger the ingestion task
   try {
     const handle = await tasks.trigger<typeof ingestProxy>("ingest-proxy", {
       proxyId: proxy.id,
       xHandle,
       maxTweets: 500,
-      walletAddress: user.walletAddress ?? undefined,
+      walletAddress: user.walletAddress,
     });
 
     return NextResponse.json({ runId: handle.id, proxyId: proxy.id });
