@@ -1,5 +1,5 @@
 /**
- * X Bot: Thin listener that detects @proxifun mentions,
+ * X Bot: Thin listener that detects @proxiagent mentions,
  * parses create intent, creates proxy record, sends initial reply,
  * and dispatches the Trigger.dev ingestion task.
  */
@@ -7,9 +7,10 @@
 import { tasks } from "@trigger.dev/sdk";
 import type { ingestProxy } from "@/trigger/ingest-proxy";
 import { sendTweet, getUserByUsername, type XTweet } from "./client";
-import { createProxy, getProxyByHandle } from "@/lib/db/queries";
+import { createProxy, getProxyByHandle, upsertUser } from "@/lib/db/queries";
+import { createUserWithWallet } from "@/lib/auth/privy";
 
-const BOT_HANDLE = "proxifun";
+const BOT_HANDLE = process.env.BOT_HANDLE ?? "proxiagent";
 
 interface MentionEvent {
   tweet: XTweet;
@@ -19,9 +20,9 @@ interface MentionEvent {
 /**
  * Parse a mention tweet to determine if it's a create intent.
  * Looks for patterns like:
- * - "@proxifun clone me"
- * - "@proxifun create my proxy"
- * - "@proxifun make my clone"
+ * - "@proxiagent clone me"
+ * - "@proxiagent create my proxy"
+ * - "@proxiagent make my clone"
  */
 export function parseCreateIntent(tweet: XTweet): MentionEvent | null {
   const text = tweet.text.toLowerCase();
@@ -52,9 +53,10 @@ export function parseCreateIntent(tweet: XTweet): MentionEvent | null {
 /**
  * Handle a confirmed create intent:
  * 1. Look up the X user
- * 2. Create a proxy record in pending state
- * 3. Send initial reply
- * 4. Dispatch background task via Trigger.dev
+ * 2. Create Privy user with embedded wallet (server-side)
+ * 3. Create DB user + proxy records
+ * 4. Send initial reply
+ * 5. Dispatch background task via Trigger.dev (with walletAddress)
  */
 export async function handleCreateMention(
   authorHandle: string,
@@ -82,8 +84,38 @@ export async function handleCreateMention(
     return;
   }
 
-  // Step 2: Create proxy record
+  // Step 2: Create Privy user with embedded wallet (server-side)
+  let walletAddress: string | undefined;
+  let dbUserId: string | undefined;
+  try {
+    const privyResult = await createUserWithWallet(authorHandle, xUser.id);
+    walletAddress = privyResult.walletAddress;
+
+    // Step 3: Create / update DB user record
+    const dbUser = await upsertUser({
+      privyId: privyResult.privyId,
+      walletAddress: privyResult.walletAddress,
+      xHandle: authorHandle,
+      displayName: xUser.name,
+      xProfileImageUrl: xUser.profile_image_url?.replace("_normal", "_400x400"),
+      bio: xUser.description,
+    });
+    dbUserId = dbUser.id;
+
+    console.log(
+      `[bot] Created Privy user + wallet for @${authorHandle}: ${walletAddress}`,
+    );
+  } catch (privyErr) {
+    // Non-fatal: continue without wallet — token deployment will be skipped
+    console.error(
+      `[bot] Failed to create Privy wallet for @${authorHandle}:`,
+      privyErr,
+    );
+  }
+
+  // Step 4: Create proxy record (linked to user if we have one)
   const proxy = await createProxy({
+    creatorId: dbUserId,
     xHandle: authorHandle,
     displayName: xUser.name,
     avatarUrl: xUser.profile_image_url?.replace("_normal", "_400x400"),
@@ -91,19 +123,19 @@ export async function handleCreateMention(
     status: "building",
   });
 
-  // Step 3: Send Reply 1 (acknowledgment)
+  // Step 5: Send Reply 1 (acknowledgment)
   await sendTweet(
     `@${authorHandle} 🔥 Building your AI proxy now!\n\nI'm analyzing your top posts, learning your voice, and creating your digital twin. This usually takes 2-3 minutes.\n\nI'll reply here when it's ready. Stay tuned!`,
     tweetId,
   );
 
-  // Step 4: Dispatch background task via Trigger.dev
-  // The task runs asynchronously — completion reply is handled inside the task
+  // Step 6: Dispatch background task via Trigger.dev (with walletAddress)
   try {
     const handle = await tasks.trigger<typeof ingestProxy>("ingest-proxy", {
       proxyId: proxy.id,
       xHandle: authorHandle,
       tweetId,
+      walletAddress,
     });
 
     console.log(
@@ -124,16 +156,33 @@ export async function handleCreateMention(
 /**
  * Send the completion reply when the proxy is ready.
  * Called from the ingest-proxy task on success.
+ *
+ * If token info is provided, the reply includes the ticker and
+ * a link to the claim page where the creator can access their wallet/fees.
  */
 export async function sendCompletionReply(
   handle: string,
   proxyId: string,
   originalTweetId: string,
+  tokenInfo?: { tokenAddress: string; ticker: string },
 ) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://proxi.fun";
-  await sendTweet(
-    `@${handle} ✅ Your AI proxy is LIVE!\n\n🔗 ${appUrl}/${handle}\n\nPeople can now chat with your AI clone. Claim your proxy to earn royalties and customize it further.`,
-    originalTweetId,
-  );
+
+  const lines = [
+    `@${handle} ✅ Your AI proxy is LIVE!`,
+    ``,
+    `🔗 Chat: ${appUrl}/${handle}`,
+  ];
+
+  if (tokenInfo) {
+    lines.push(`💰 Token: $${tokenInfo.ticker}`);
+    lines.push(`🎁 Claim your creator fees: ${appUrl}/${handle}/claim`);
+  } else {
+    lines.push(
+      `People can now chat with your AI clone. Claim your proxy to customize it further.`,
+    );
+  }
+
+  await sendTweet(lines.join("\n"), originalTweetId);
   void proxyId; // Used for linking in production
 }

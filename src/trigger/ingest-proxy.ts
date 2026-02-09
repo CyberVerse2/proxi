@@ -11,6 +11,8 @@ import { sendCompletionReply } from "@/lib/x/bot";
 import { sendTweet } from "@/lib/x/client";
 import { db } from "@/lib/db";
 import { ingestionLogs } from "@/lib/db/schema";
+import { deployProxyToken } from "@/lib/chain/token";
+import { getProxyById } from "@/lib/db/queries";
 
 interface IngestProxyPayload {
   proxyId: string;
@@ -19,6 +21,8 @@ interface IngestProxyPayload {
   tweetId?: string;
   /** Max tweets to fetch. Defaults to 500. */
   maxTweets?: number;
+  /** Creator's wallet address — used to deploy their token after ingestion. */
+  walletAddress?: string;
 }
 
 export const ingestProxy = task({
@@ -41,7 +45,7 @@ export const ingestProxy = task({
   },
 
   run: async (payload: IngestProxyPayload) => {
-    const { proxyId, xHandle, tweetId, maxTweets } = payload;
+    const { proxyId, xHandle, tweetId, maxTweets, walletAddress } = payload;
 
     logger.info("Starting proxy ingestion", { proxyId, xHandle, maxTweets });
 
@@ -86,11 +90,55 @@ export const ingestProxy = task({
         topSelected: result.topSelected,
       });
 
+      // Deploy token (if wallet provided and not already deployed — idempotent)
+      let tokenInfo: { tokenAddress: string; ticker: string } | undefined;
+      if (walletAddress) {
+        try {
+          const proxy = await getProxyById(proxyId);
+          if (proxy && !proxy.tokenAddress) {
+            logger.info("Deploying token for proxy", { proxyId, walletAddress });
+            const tokenResult = await deployProxyToken({
+              name: proxy.displayName ?? xHandle,
+              symbol: proxy.ticker ?? xHandle.toUpperCase().slice(0, 5),
+              proxyId,
+              creatorAddress: walletAddress,
+              imageUrl: proxy.avatarUrl ?? undefined,
+              description: proxy.bio ?? undefined,
+            });
+            tokenInfo = {
+              tokenAddress: tokenResult.tokenAddress,
+              ticker: tokenResult.ticker,
+            };
+            logger.info("Token deployed", {
+              proxyId,
+              tokenAddress: tokenResult.tokenAddress,
+              ticker: tokenResult.ticker,
+              txHash: tokenResult.txHash,
+            });
+          } else if (proxy?.tokenAddress) {
+            logger.info("Token already deployed, skipping", {
+              proxyId,
+              tokenAddress: proxy.tokenAddress,
+            });
+            tokenInfo = {
+              tokenAddress: proxy.tokenAddress,
+              ticker: proxy.ticker ?? xHandle.toUpperCase().slice(0, 5),
+            };
+          }
+        } catch (tokenErr) {
+          // Non-fatal: log but continue to send completion tweet without token info
+          logger.error("Token deployment failed", {
+            proxyId,
+            error: tokenErr instanceof Error ? tokenErr.message : String(tokenErr),
+          });
+        }
+      }
+
       // Send completion tweet as a reply to the original mention
       if (tweetId) {
         try {
-          await sendCompletionReply(xHandle, proxyId, tweetId);
-          logger.info("Completion tweet sent", { xHandle, tweetId });
+          await sendCompletionReply(xHandle, proxyId, tweetId, tokenInfo);
+          logger.info("Completion tweet sent", { xHandle, tweetId, tokenInfo });
         } catch (replyErr) {
           // Don't fail the whole task if the tweet fails
           logger.warn("Failed to send completion tweet", {

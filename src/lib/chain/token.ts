@@ -24,6 +24,8 @@ const DEPLOYER_PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY as
   | `0x${string}`
   | undefined;
 
+const PLATFORM_WALLET = process.env.PLATFORM_WALLET_ADDRESS as `0x${string}`;
+
 const RPC_URL =
   process.env.NEXT_PUBLIC_BASE_RPC_URL ?? "https://mainnet.base.org";
 
@@ -65,6 +67,7 @@ interface DeployTokenParams {
 
 interface TokenDeployResult {
   tokenAddress: string;
+  ticker: string;
   txHash: string;
   success: boolean;
   chain: string;
@@ -102,8 +105,14 @@ export async function deployProxyToken(
       recipients: [
         {
           admin: deployerAddress,
-          recipient: creatorAddress as `0x${string}`,
-          bps: 10_000, // 100% of rewards to creator
+          recipient: creatorAddress as `0x${string}`, // Creator — 50%
+          bps: 5000,
+          token: "Both",
+        },
+        {
+          admin: deployerAddress,
+          recipient: PLATFORM_WALLET, // Proxi treasury — 50%
+          bps: 5000,
           token: "Both",
         },
       ],
@@ -112,6 +121,12 @@ export async function deployProxyToken(
       type: "static",
       clankerFee: 100, // 1% in bps
       pairedFee: 100, // 1% in bps
+    },
+    vault: {
+      percentage: 30, // 30% of total supply
+      lockupDuration: 15_552_000, // 6 months (180 days in seconds)
+      vestingDuration: 0, // all unlocks at once
+      recipient: creatorAddress as `0x${string}`, // Creator receives the vaulted tokens
     },
   });
 
@@ -141,14 +156,15 @@ export async function deployProxyToken(
     metadata: { txHash, deployerAddress },
   });
 
-  // Update proxy record
+  // Update proxy record (save token address + ticker)
   await db
     .update(proxies)
-    .set({ tokenAddress, updatedAt: new Date() })
+    .set({ tokenAddress, ticker: symbol, updatedAt: new Date() })
     .where(eq(proxies.id, proxyId));
 
   return {
     tokenAddress,
+    ticker: symbol,
     txHash,
     success: true,
     chain: "base",

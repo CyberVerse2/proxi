@@ -35,31 +35,45 @@ export async function runFullIngestion(
   proxyId: string,
   xHandle: string,
   onProgress?: (step: string, detail: string) => void,
-  maxTweets = 500,
+  maxTweets = 200,
+  /** Pre-loaded tweets — skips X API calls when provided (for testing). */
+  prefetchedTweets?: import("./client").XTweet[],
 ): Promise<IngestResult> {
   const log = (step: string, detail: string) => onProgress?.(step, detail);
 
-  // Step 1: Get user profile
-  log("fetch_user", `Looking up @${xHandle}...`);
-  const xUser = await getUserByUsername(xHandle);
-  if (!xUser) throw new Error(`X user @${xHandle} not found`);
+  let allTweets: import("./client").XTweet[];
+  let userId: string;
 
-  // Step 2: Update proxy with profile data
-  log("update_profile", "Updating proxy profile...");
-  await updateProxy(proxyId, {
-    displayName: xUser.name,
-    avatarUrl: xUser.profile_image_url?.replace("_normal", "_400x400"),
-    bio: xUser.description,
-  });
+  if (prefetchedTweets && prefetchedTweets.length > 0) {
+    // Skip X API — use provided tweets
+    log("fetch_user", `Using prefetched data for @${xHandle}`);
+    allTweets = prefetchedTweets;
+    userId = "mock";
+    log("fetch_tweets", `Loaded ${allTweets.length} prefetched tweets`);
+  } else {
+    // Step 1: Get user profile
+    log("fetch_user", `Looking up @${xHandle}...`);
+    const xUser = await getUserByUsername(xHandle);
+    if (!xUser) throw new Error(`X user @${xHandle} not found`);
+    userId = xUser.id;
 
-  // Step 3: Pull all tweets
-  log("fetch_tweets", "Pulling tweets from X...");
-  const allTweets = await getAllUserTweets(xUser.id, maxTweets);
-  log("fetch_tweets", `Collected ${allTweets.length} tweets`);
+    // Step 2: Update proxy with profile data
+    log("update_profile", "Updating proxy profile...");
+    await updateProxy(proxyId, {
+      displayName: xUser.name,
+      avatarUrl: xUser.profile_image_url?.replace("_normal", "_400x400"),
+      bio: xUser.description,
+    });
+
+    // Step 3: Pull all tweets
+    log("fetch_tweets", "Pulling tweets from X...");
+    allTweets = await getAllUserTweets(xUser.id, maxTweets);
+    log("fetch_tweets", `Collected ${allTweets.length} tweets`);
+  }
 
   // Step 4: Reconstruct threads
   log("threads", "Reconstructing threads...");
-  const { standalones, threads } = reconstructThreads(allTweets, xUser.id);
+  const { standalones, threads } = reconstructThreads(allTweets, userId);
   const syntheticThreadTweets = threadsToSyntheticTweets(threads);
   const unifiedTweets = [...standalones, ...syntheticThreadTweets];
   log("threads", `Found ${threads.length} threads (${standalones.length} standalones)`);
