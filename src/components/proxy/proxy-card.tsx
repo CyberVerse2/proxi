@@ -77,7 +77,7 @@ export function ProxyCard({ proxy }: ProxyCardProps) {
       {/* Content stack */}
       <div
         className={`
-          relative z-30 flex flex-col w-full px-5 pb-3 pt-[55%] 
+          relative z-30 flex flex-col w-full px-5 pb-3 pt-[55%] text-left
           transition-transform duration-300
           group-hover:-translate-y-18
           min-h-[185px]

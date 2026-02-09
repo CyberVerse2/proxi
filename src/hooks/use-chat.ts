@@ -184,6 +184,7 @@ export function useChat({ proxyHandle, privyId }: UseChatOptions) {
     isLoading,
     error,
     paymentRequired,
+    setPaymentRequired,
     conversationId,
     sendMessage,
     stop,

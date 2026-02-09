@@ -1,34 +1,29 @@
 'use client';
 
-const MARQUEE_ITEMS = [
+const ITEMS = [
   'Clone Yourself',
-  'Tokenize Your Agent',
+  'Earn Forever',
   'Chat With Anyone',
-  'Earn From Your Clone',
+  'Your Intelligence Uploaded',
   'Powered By Base',
-  'Farcaster Native',
+  'Always Online',
 ];
 
 export function MarqueeSection() {
-  // Double for seamless loop
-  const items = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS];
+  // Duplicate items twice for seamless infinite scroll
+  const doubled = [...ITEMS, ...ITEMS];
+
   return (
-    <div className="overflow-hidden py-6 border-t border-b border-white/6 relative">
-      {/* Subtle lime gradient bleed behind */}
-      <div
-        className="absolute inset-0 opacity-30 pointer-events-none"
-        style={{
-          background:
-            'linear-gradient(90deg, transparent, rgba(191,255,0,0.03) 30%, rgba(191,255,0,0.03) 70%, transparent)',
-        }}
-      />
-      <div className="flex gap-0 animate-marquee" style={{ width: 'max-content' }}>
-        {items.map((text, i) => (
-          <span key={`${text}-${i}`} className="flex items-center gap-0">
-            <span className="font-heading text-sm md:text-base uppercase tracking-[0.12em] whitespace-nowrap text-white/10 px-6">
+    <div className="overflow-hidden py-5 border-t border-b border-white/4">
+      <div className="flex gap-12 animate-marquee w-max">
+        {doubled.map((text, i) => (
+          <span key={i} className="flex items-center gap-12">
+            <span className="font-heading text-base text-white/6 whitespace-nowrap uppercase tracking-widest">
               {text}
             </span>
-            <span className="text-lime/30 text-lg">✦</span>
+            <span className="font-heading text-base text-lime/12 whitespace-nowrap">
+              ★
+            </span>
           </span>
         ))}
       </div>

@@ -37,8 +37,8 @@ const FEATURES: FeatureItem[] = [
   },
   {
     icon: Gem,
-    title: 'Agent Tokenomics',
-    desc: 'Each agent gets its own tradeable token launched on Base. Proxies earn 50% of all fees — your clone is literally an asset.',
+    title: 'Proxi Tokenomics',
+    desc: 'Each proxi gets its own tradeable token launched on Base. Creators earn 50% of all fees — your clone is literally an asset.',
     visual: 'token',
     layout: 'vertical',
     gridClass: 'md:col-start-2 md:col-end-3 md:row-start-1 md:row-end-5',  // col 2, rows 1-4 (taller)
@@ -47,7 +47,7 @@ const FEATURES: FeatureItem[] = [
   {
     icon: BookOpen,
     title: 'Custom Data Upload',
-    desc: 'Upload documents, notes, or chat directly with your agent to teach it things only you know.',
+    desc: 'Upload documents, notes, or chat directly with your proxi to teach it things only you know.',
     visual: 'upload',
     layout: 'horizontal-reverse',
     gridClass: 'md:col-start-1 md:col-end-2 md:row-start-4 md:row-end-7',  // col 1, rows 4-7
@@ -56,7 +56,7 @@ const FEATURES: FeatureItem[] = [
   {
     icon: Globe,
     title: 'Open Chat',
-    desc: 'Anyone can discover and chat with any agent on the platform, no login required. ',
+    desc: 'Anyone can discover and chat with any proxi on the platform, no login required.',
     visual: 'chat',
     layout: 'horizontal',
     gridClass: 'md:col-start-2 md:col-end-3 md:row-start-5 md:row-end-7',  // col 2, rows 5-8

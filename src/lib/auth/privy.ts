@@ -14,6 +14,24 @@ export async function getAuthUser(authToken: string | undefined) {
   }
 }
 
+/**
+ * Fetch a user's embedded Ethereum wallet address from Privy by DID.
+ * Returns null if the user doesn't have one.
+ */
+export async function getPrivyWalletAddress(
+  privyDid: string,
+): Promise<string | null> {
+  try {
+    const user = await privyServer.getUser(privyDid);
+    const wallet = user.linkedAccounts.find(
+      (a) => a.type === "wallet" && a.chainType === "ethereum",
+    );
+    return wallet && "address" in wallet ? wallet.address : null;
+  } catch {
+    return null;
+  }
+}
+
 /* ────────────────────────────────────────────────────────── */
 /*  Server-side wallet creation for the "clone me" flow       */
 /* ────────────────────────────────────────────────────────── */

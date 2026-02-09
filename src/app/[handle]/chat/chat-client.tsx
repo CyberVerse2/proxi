@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { ArrowUp, Square, ChevronDown, Coins } from 'lucide-react';
 import { useChat } from '@/hooks/use-chat';
@@ -34,6 +34,7 @@ export function ChatClient({
     sendMessage,
     stop,
     paymentRequired,
+    setPaymentRequired,
     conversationId: hookConvoId,
     loadConversation,
     resetChat,
@@ -45,6 +46,42 @@ export function ChatClient({
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
+
+  // Message credits
+  const [credits, setCredits] = useState<{
+    freeRemaining: number;
+    freeLimit: number;
+    hasTokens: boolean;
+    messagesOwned: number;
+    unlimited: boolean;
+  } | null>(null);
+
+  // Fetch credits on mount, after each message, and on window focus (e.g. returning from buying tokens)
+  const fetchCredits = useCallback(() => {
+    const params = new URLSearchParams({ proxyHandle: handle });
+    if (user?.id) params.set("privyId", user.id);
+    fetch(`/api/chat/credits?${params}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setCredits(data);
+        // Clear payment block if user now has tokens or free messages
+        if (data.hasTokens || data.freeRemaining > 0 || data.unlimited) {
+          setPaymentRequired(null);
+        }
+      })
+      .catch(() => {});
+  }, [handle, user?.id, setPaymentRequired]);
+
+  useEffect(() => {
+    fetchCredits();
+  }, [fetchCredits, messages.length]);
+
+  // Re-check credits when user returns to the tab (e.g. after buying tokens)
+  useEffect(() => {
+    const onFocus = () => fetchCredits();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [fetchCredits]);
 
   // Review modal state
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -194,6 +231,59 @@ export function ChatClient({
             {bio && (
               <p className="text-white/60 text-sm mt-1 max-w-[380px] mx-auto line-clamp-1">{bio}</p>
             )}
+            {credits && !credits.unlimited && (() => {
+              // Token holder with 10+ messages — no counter needed
+              if (credits.hasTokens && credits.messagesOwned >= 10) return null;
+
+              // Token holder running low (< 10 messages)
+              if (credits.hasTokens && credits.messagesOwned < 10) {
+                return (
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-yellow-400/60 text-xs">
+                      {credits.messagesOwned} message{credits.messagesOwned !== 1 ? 's' : ''} remaining
+                    </span>
+                    <Link
+                      href={`/${handle}#trade`}
+                      className="text-[11px] font-semibold text-black bg-lime rounded-full px-2.5 py-0.5 hover:bg-lime/90 transition-colors"
+                    >
+                      Buy
+                    </Link>
+                  </div>
+                );
+              }
+
+              // Free messages remaining
+              if (credits.freeRemaining > 0) {
+                return (
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-white/30 text-xs">
+                      {credits.freeRemaining} free message{credits.freeRemaining !== 1 ? 's' : ''} remaining
+                    </span>
+                    <Link
+                      href={`/${handle}#trade`}
+                      className="text-[11px] font-semibold text-black bg-lime rounded-full px-2.5 py-0.5 hover:bg-lime/90 transition-colors"
+                    >
+                      Buy
+                    </Link>
+                  </div>
+                );
+              }
+
+              // Out of free messages, no tokens
+              return (
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-yellow-400/60 text-xs">
+                    0 messages remaining
+                  </span>
+                  <Link
+                    href={`/${handle}#trade`}
+                    className="text-[11px] font-semibold text-black bg-lime rounded-full px-2.5 py-0.5 hover:bg-lime/90 transition-colors"
+                  >
+                    Buy
+                  </Link>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Scroll-to-bottom FAB */}

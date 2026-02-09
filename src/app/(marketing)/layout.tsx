@@ -6,7 +6,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
   return (
     <>
       <TopNav />
-      <main className="pt-14">{children}</main>
+      <main>{children}</main>
     </>
   );
 }

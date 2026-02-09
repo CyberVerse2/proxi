@@ -11,6 +11,7 @@ import {
 } from "@/lib/db/queries";
 import { getChatContext } from "@/lib/ai/chat";
 import { getOnChainTokenBalance } from "@/lib/chain/token";
+import { getPrivyWalletAddress } from "@/lib/auth/privy";
 
 const FREE_MESSAGES_PER_PROXY = 5;
 
@@ -65,8 +66,11 @@ export async function POST(request: Request) {
   if (dbUserId && proxy.tokenAddress) {
     const msgCount = await getUserProxyMessageCount(dbUserId, proxy.id);
     if (msgCount >= FREE_MESSAGES_PER_PROXY) {
-      const user = await getUserByPrivyId(privyId);
-      if (!user?.walletAddress) {
+      // Resolve wallet from Privy (source of truth)
+      const walletAddress = privyId
+        ? await getPrivyWalletAddress(privyId)
+        : null;
+      if (!walletAddress) {
         return new Response(
           JSON.stringify({
             error: "wallet_required",
@@ -80,7 +84,7 @@ export async function POST(request: Request) {
       try {
         const balance = await getOnChainTokenBalance(
           proxy.tokenAddress as `0x${string}`,
-          user.walletAddress as `0x${string}`,
+          walletAddress as `0x${string}`,
         );
         if (balance === 0n) {
           return new Response(

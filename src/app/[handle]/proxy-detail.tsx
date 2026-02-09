@@ -84,7 +84,7 @@ export function ProxyDetail({
   const [activeTab, setActiveTab] = useState<string>('About Me');
   const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy');
   const [denomination, setDenomination] = useState<'messages' | 'usd'>('messages');
-  const [amount, setAmount] = useState('10');
+  const [amount, setAmount] = useState('5');
   const [copied, setCopied] = useState(false);
 
   // Auth + Swap
@@ -110,6 +110,7 @@ export function ProxyDetail({
   const [usdcBalance, setUsdcBalance] = useState('0');
   const [tokenBalance, setTokenBalance] = useState('0');
   const [tokensPerMessage, setTokensPerMessage] = useState<string | null>(null);
+  const [rawTokensPerMessage, setRawTokensPerMessage] = useState<number>(0);
   const [balancesLoading, setBalancesLoading] = useState(true);
   const [pricingLoading, setPricingLoading] = useState(!!proxy.tokenAddress);
   const [swapSuccess, setSwapSuccess] = useState<{
@@ -151,6 +152,7 @@ export function ProxyDetail({
       .then((result) => {
         if (result) {
           const tokens = Number(result.buyAmount) / 1e18;
+          setRawTokensPerMessage(tokens);
           setTokensPerMessage(tokens > 0 ? formatTokenAmount(tokens) : null);
         }
       })
@@ -162,8 +164,11 @@ export function ProxyDetail({
   const msgCount = denomination === 'messages' ? rawAmount : rawAmount / MESSAGE_PRICE_USD;
   const usdcCost = denomination === 'messages' ? rawAmount * MESSAGE_PRICE_USD : rawAmount;
 
+  const MIN_BUY_MESSAGES = 5;
+
   const handleSwap = async () => {
     if (!proxy.tokenAddress || !amount || msgCount <= 0) return;
+    if (tradeMode === 'buy' && msgCount < MIN_BUY_MESSAGES) return;
     setSwapSuccess(null);
     const savedMode = tradeMode;
     const savedMsgCount = Math.round(msgCount);
@@ -177,7 +182,7 @@ export function ProxyDetail({
         messages: savedMsgCount,
         usdcAmount: savedUsdcCost
       });
-      setAmount(denomination === 'messages' ? '10' : '1');
+      setAmount(denomination === 'messages' ? '5' : '0.50');
       refreshBalances();
     }
   };
@@ -951,7 +956,7 @@ export function ProxyDetail({
                   <button
                     onClick={() => {
                       setTradeMode('buy');
-                      setAmount(denomination === 'messages' ? '10' : '1');
+                      setAmount(denomination === 'messages' ? '5' : '0.50');
                     }}
                     className={cn(
                       'flex-1 py-2 text-sm font-semibold rounded-[10px] transition-colors cursor-pointer',
@@ -963,7 +968,7 @@ export function ProxyDetail({
                   <button
                     onClick={() => {
                       setTradeMode('sell');
-                      setAmount(denomination === 'messages' ? '10' : '1');
+                      setAmount(denomination === 'messages' ? '5' : '0.50');
                     }}
                     className={cn(
                       'flex-1 py-2 text-sm font-semibold rounded-[10px] transition-colors cursor-pointer',
@@ -1029,7 +1034,7 @@ export function ProxyDetail({
                         } else {
                           // Convert current USD to messages
                           const msgs = Math.round(rawAmount / MESSAGE_PRICE_USD);
-                          setAmount(msgs > 0 ? String(msgs) : '10');
+                          setAmount(msgs > 0 ? String(msgs) : '5');
                           setDenomination('messages');
                         }
                       }}
@@ -1144,11 +1149,13 @@ export function ProxyDetail({
                   {proxy.tokenAddress && (
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-gray">Messages owned</span>
-                      {balancesLoading ? (
+                      {balancesLoading || pricingLoading ? (
                         <div className="h-3.5 w-20 bg-white/6 rounded animate-pulse" />
                       ) : (
                         <span className="text-white font-medium">
-                          {formatTokenAmount(parseFloat(tokenBalance))} msgs
+                          {rawTokensPerMessage > 0
+                            ? Math.floor(parseFloat(tokenBalance) / rawTokensPerMessage).toLocaleString()
+                            : '0'} msgs
                         </span>
                       )}
                     </div>
@@ -1175,21 +1182,33 @@ export function ProxyDetail({
                     Token not deployed
                   </Button>
                 ) : (
-                  <Button
-                    className="w-full rounded-xl h-11 text-sm font-bold cursor-pointer"
-                    onClick={handleSwap}
-                    disabled={swapLoading || !amount || msgCount <= 0}
-                  >
-                    {swapLoading ? (
-                      <span className="flex items-center gap-2">
-                        <Loader2 size={16} className="animate-spin" /> Processing...
-                      </span>
-                    ) : tradeMode === 'buy' ? (
-                      `Buy ${Math.round(msgCount)} Messages — $${usdcCost.toFixed(2)}`
-                    ) : (
-                      `Sell ${Math.round(msgCount)} Messages`
+                  <>
+                    {tradeMode === 'buy' && msgCount > 0 && msgCount < MIN_BUY_MESSAGES && (
+                      <p className="text-yellow-400 text-xs text-center mb-1">
+                        Minimum purchase is {MIN_BUY_MESSAGES} messages
+                      </p>
                     )}
-                  </Button>
+                    <Button
+                      className="w-full rounded-xl h-11 text-sm font-bold cursor-pointer"
+                      onClick={handleSwap}
+                      disabled={
+                        swapLoading ||
+                        !amount ||
+                        msgCount <= 0 ||
+                        (tradeMode === 'buy' && msgCount < MIN_BUY_MESSAGES)
+                      }
+                    >
+                      {swapLoading ? (
+                        <span className="flex items-center gap-2">
+                          <Loader2 size={16} className="animate-spin" /> Processing...
+                        </span>
+                      ) : tradeMode === 'buy' ? (
+                        `Buy ${Math.round(msgCount)} Messages — $${usdcCost.toFixed(2)}`
+                      ) : (
+                        `Sell ${Math.round(msgCount)} Messages`
+                      )}
+                    </Button>
+                  </>
                 )}
 
                 <p className="text-gray/40 text-[11px] text-center flex items-center justify-center gap-1.5">
@@ -1205,11 +1224,13 @@ export function ProxyDetail({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-gray text-sm">Messages owned</span>
-                {balancesLoading ? (
+                {balancesLoading || pricingLoading ? (
                   <div className="h-4 w-16 bg-white/6 rounded animate-pulse" />
                 ) : (
                   <span className="text-white text-base font-medium">
-                    {formatTokenAmount(parseFloat(tokenBalance))}
+                    {rawTokensPerMessage > 0
+                      ? Math.floor(parseFloat(tokenBalance) / rawTokensPerMessage).toLocaleString()
+                      : '0'}
                   </span>
                 )}
               </div>

@@ -14,8 +14,8 @@
  * model a second chance to produce valid JSON.
  */
 
-import { generateText, Output } from "ai";
-import { z } from "zod";
+import { generateText, Output } from 'ai';
+import { z } from 'zod';
 
 /**
  * Format Zod errors into a human-readable summary showing exactly
@@ -24,10 +24,10 @@ import { z } from "zod";
 function formatZodErrors(error: z.ZodError): string {
   return error.issues
     .map((issue) => {
-      const path = issue.path.length > 0 ? issue.path.join(".") : "(root)";
+      const path = issue.path.length > 0 ? issue.path.join('.') : '(root)';
       return `  - ${path}: ${issue.message} (${issue.code})`;
     })
-    .join("\n");
+    .join('\n');
 }
 
 /**
@@ -47,13 +47,13 @@ function lenientJsonParse(raw: string): unknown {
   let sanitized = raw;
 
   // Remove single-line comments (// ...)
-  sanitized = sanitized.replace(/\/\/[^\n]*/g, "");
+  sanitized = sanitized.replace(/\/\/[^\n]*/g, '');
 
   // Remove trailing commas before ] or }
-  sanitized = sanitized.replace(/,\s*([}\]])/g, "$1");
+  sanitized = sanitized.replace(/,\s*([}\]])/g, '$1');
 
   // Remove control characters that break JSON (except \n \r \t which are fine escaped)
-  sanitized = sanitized.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, "");
+  sanitized = sanitized.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '');
 
   try {
     return JSON.parse(sanitized);
@@ -62,8 +62,8 @@ function lenientJsonParse(raw: string): unknown {
   }
 
   // Last resort: try to find balanced braces (the model may have added text after the JSON)
-  const start = sanitized.indexOf("{");
-  if (start === -1) throw new SyntaxError("No JSON object found in response");
+  const start = sanitized.indexOf('{');
+  if (start === -1) throw new SyntaxError('No JSON object found in response');
 
   let depth = 0;
   let inString = false;
@@ -77,7 +77,7 @@ function lenientJsonParse(raw: string): unknown {
       continue;
     }
 
-    if (ch === "\\") {
+    if (ch === '\\') {
       escaped = true;
       continue;
     }
@@ -89,25 +89,23 @@ function lenientJsonParse(raw: string): unknown {
 
     if (inString) continue;
 
-    if (ch === "{") depth++;
-    else if (ch === "}") {
+    if (ch === '{') depth++;
+    else if (ch === '}') {
       depth--;
       if (depth === 0) {
         let slice = sanitized.slice(start, i + 1);
         // Clean trailing commas again on the slice
-        slice = slice.replace(/,\s*([}\]])/g, "$1");
+        slice = slice.replace(/,\s*([}\]])/g, '$1');
         return JSON.parse(slice);
       }
     }
   }
 
-  throw new SyntaxError(
-    "Could not extract valid JSON. Text starts with: " + raw.slice(0, 200),
-  );
+  throw new SyntaxError('Could not extract valid JSON. Text starts with: ' + raw.slice(0, 200));
 }
 
 export async function generateStructured<T extends z.ZodType>(opts: {
-  model: Parameters<typeof generateText>[0]["model"];
+  model: Parameters<typeof generateText>[0]['model'];
   schema: T;
   maxOutputTokens: number;
   prompt: string;
@@ -118,7 +116,7 @@ export async function generateStructured<T extends z.ZodType>(opts: {
       model: opts.model,
       output: Output.object({ schema: opts.schema }),
       maxOutputTokens: opts.maxOutputTokens,
-      prompt: opts.prompt,
+      prompt: opts.prompt
     });
     if (output) return output as z.infer<T>;
   } catch (err) {
@@ -126,7 +124,7 @@ export async function generateStructured<T extends z.ZodType>(opts: {
     console.warn(`[structured] Output.object() failed: ${errMsg.slice(0, 200)}`);
 
     // If the error contains the raw response text, try to parse it directly
-    if (err && typeof err === "object" && "text" in err) {
+    if (err && typeof err === 'object' && 'text' in err) {
       const rawText = String((err as { text: unknown }).text);
       const jsonMatch = rawText.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
       if (jsonMatch) {
@@ -134,11 +132,11 @@ export async function generateStructured<T extends z.ZodType>(opts: {
           const parsed = lenientJsonParse(jsonMatch[1]);
           const result = opts.schema.safeParse(parsed);
           if (result.success) {
-            console.log("[structured] Raw text passes schema after sanitization — returning it.");
+            console.log('[structured] Raw text passes schema after sanitization — returning it.');
             return result.data;
           }
           console.warn(
-            `[structured] Schema validation failures on raw response:\n${formatZodErrors(result.error)}`,
+            `[structured] Schema validation failures on raw response:\n${formatZodErrors(result.error)}`
           );
         } catch {
           // JSON parse failed even after sanitization, continue to attempt 2
@@ -153,16 +151,13 @@ export async function generateStructured<T extends z.ZodType>(opts: {
     maxOutputTokens: opts.maxOutputTokens,
     prompt:
       opts.prompt +
-      "\n\nIMPORTANT: Output ONLY valid JSON. No preamble, no explanation, no markdown fences. Start with { or [.",
+      '\n\nIMPORTANT: Output ONLY valid JSON. No preamble, no explanation, no markdown fences. Start with { or [.'
   });
 
   // Try to extract the outermost JSON object or array
   const jsonMatch = text.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
   if (!jsonMatch) {
-    throw new Error(
-      "LLM returned no parseable JSON. Response starts with: " +
-        text.slice(0, 200),
-    );
+    throw new Error('LLM returned no parseable JSON. Response starts with: ' + text.slice(0, 200));
   }
 
   const parsed = lenientJsonParse(jsonMatch[1]);
@@ -170,17 +165,15 @@ export async function generateStructured<T extends z.ZodType>(opts: {
 
   if (!result.success) {
     console.error(
-      `[structured] Fallback also failed schema validation:\n${formatZodErrors(result.error)}`,
+      `[structured] Fallback also failed schema validation:\n${formatZodErrors(result.error)}`
     );
 
-    if (typeof parsed === "object" && parsed !== null) {
-      console.error(
-        `[structured] Keys returned by model: ${Object.keys(parsed).join(", ")}`,
-      );
+    if (typeof parsed === 'object' && parsed !== null) {
+      console.error(`[structured] Keys returned by model: ${Object.keys(parsed).join(', ')}`);
     }
 
     throw new Error(
-      `Structured output failed after both attempts. Field errors:\n${formatZodErrors(result.error)}`,
+      `Structured output failed after both attempts. Field errors:\n${formatZodErrors(result.error)}`
     );
   }
 
