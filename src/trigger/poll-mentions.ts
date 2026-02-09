@@ -14,7 +14,9 @@ const STATE_KEY = "poll_mentions_since_id";
 
 export const pollMentions = schedules.task({
   id: "poll-mentions",
-  cron: "*/2 * * * *", // Every 2 minutes
+  cron: "*/5 * * * *", // Every 5 minutes
+  machine: "micro",
+  maxDuration: 120, // 2 minutes max
 
   // Only one poll instance at a time
   queue: {

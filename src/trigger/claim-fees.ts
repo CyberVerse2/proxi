@@ -19,7 +19,9 @@ import { formatEther } from "viem";
 
 export const claimFees = schedules.task({
   id: "claim-fees",
-  cron: "0 */1 * * *", // Every 1 hours
+  cron: "0 */1 * * *", // Every 1 hour
+  machine: "micro",
+  maxDuration: 300, // 5 minutes max
 
   queue: {
     concurrencyLimit: 1,

@@ -11,8 +11,9 @@ import { refreshAllLiveProxies } from "@/lib/jobs/auto-refresh";
 export const autoRefreshTask = schedules.task({
   id: "auto-refresh-proxies",
 
-  // Run every 6 hours
-  cron: "0 */6 * * *",
+  // Run every 72 hours (at midnight every 3rd day)
+  cron: "0 0 */3 * *",
+  machine: "micro",
 
   maxDuration: 1800, // 30 minutes max
 
