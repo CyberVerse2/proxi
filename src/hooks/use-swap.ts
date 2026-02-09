@@ -170,8 +170,12 @@ export function useSwap(messagePriceUsd?: number) {
 
         // 1. Get quote (amount is messages for both modes, getQuote handles conversion)
         const quote = await getQuote(tokenAddress, amount, mode);
-        if (!quote?.transaction) {
-          throw new Error("No transaction data in quote");
+        if (!quote) {
+          throw new Error("Failed to get swap quote");
+        }
+        if (!quote.transaction) {
+          console.error("[swap] Quote missing transaction data:", JSON.stringify(quote));
+          throw new Error("Swap quote has no transaction — the amount may be too small or the token has no liquidity");
         }
 
         // 2. Check and set allowance for the sell token
