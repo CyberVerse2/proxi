@@ -126,6 +126,13 @@ export async function createConversation(proxyId: string, userId: string, title?
     .insert(conversations)
     .values({ proxyId, userId, title: title ?? null })
     .returning();
+
+  // Increment the proxy's total chat count
+  await db
+    .update(proxies)
+    .set({ totalChats: sql`${proxies.totalChats} + 1` })
+    .where(eq(proxies.id, proxyId));
+
   return c;
 }
 
@@ -273,14 +280,110 @@ export async function getProxyByCreatorId(creatorId: string) {
   return p ?? null;
 }
 
-/* ---------- ratings ---------- */
+/* ---------- proxy message count (live from conversations) ---------- */
+export async function getProxyMessageCount(proxyId: string): Promise<number> {
+  const [row] = await db
+    .select({
+      total: sql<number>`coalesce(sum(${conversations.totalMessages}), 0)`,
+    })
+    .from(conversations)
+    .where(eq(conversations.proxyId, proxyId));
+  return Number(row?.total ?? 0);
+}
+
+/* ---------- recent conversations (across all proxies for a user) ---------- */
+export async function getUserRecentConversations(userId: string, limit = 10) {
+  return db
+    .select({
+      id: conversations.id,
+      title: conversations.title,
+      updatedAt: conversations.updatedAt,
+      totalMessages: conversations.totalMessages,
+      proxyHandle: proxies.xHandle,
+      proxyName: proxies.displayName,
+      proxyAvatar: proxies.avatarUrl,
+    })
+    .from(conversations)
+    .innerJoin(proxies, eq(conversations.proxyId, proxies.id))
+    .where(eq(conversations.userId, userId))
+    .orderBy(desc(conversations.updatedAt))
+    .limit(limit);
+}
+
+/* ---------- ratings / reviews ---------- */
 export async function rateProxy(proxyId: string, userId: string, score: number) {
   await db.insert(ratings).values({ proxyId, userId, score });
+  await recalcProxyRating(proxyId);
+}
+
+export async function submitReview(
+  proxyId: string,
+  userId: string,
+  score: number,
+  reviewText?: string,
+) {
+  // Check if user already reviewed this proxy
+  const [existing] = await db
+    .select({ id: ratings.id })
+    .from(ratings)
+    .where(and(eq(ratings.proxyId, proxyId), eq(ratings.userId, userId)))
+    .limit(1);
+
+  if (existing) {
+    // Update existing review
+    await db
+      .update(ratings)
+      .set({ score, reviewText: reviewText ?? null })
+      .where(eq(ratings.id, existing.id));
+  } else {
+    // Insert new review
+    await db.insert(ratings).values({ proxyId, userId, score, reviewText: reviewText ?? null });
+  }
+
+  await recalcProxyRating(proxyId);
+}
+
+async function recalcProxyRating(proxyId: string) {
   const [avg] = await db
     .select({ avg: sql<number>`avg(${ratings.score})` })
     .from(ratings)
     .where(eq(ratings.proxyId, proxyId));
   await db.update(proxies).set({ rating: avg.avg }).where(eq(proxies.id, proxyId));
+}
+
+export async function getProxyReviews(proxyId: string, limit = 50) {
+  return db
+    .select({
+      id: ratings.id,
+      score: ratings.score,
+      reviewText: ratings.reviewText,
+      createdAt: ratings.createdAt,
+      userName: users.displayName,
+      userHandle: users.xHandle,
+      userAvatar: users.xProfileImageUrl,
+    })
+    .from(ratings)
+    .innerJoin(users, eq(ratings.userId, users.id))
+    .where(eq(ratings.proxyId, proxyId))
+    .orderBy(desc(ratings.createdAt))
+    .limit(limit);
+}
+
+export async function getProxyReviewCount(proxyId: string): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(ratings)
+    .where(eq(ratings.proxyId, proxyId));
+  return Number(row?.count ?? 0);
+}
+
+export async function getUserReviewForProxy(userId: string, proxyId: string) {
+  const [r] = await db
+    .select()
+    .from(ratings)
+    .where(and(eq(ratings.userId, userId), eq(ratings.proxyId, proxyId)))
+    .limit(1);
+  return r ?? null;
 }
 
 /* ---------- content chunks (for AI pipeline) ---------- */

@@ -149,14 +149,19 @@ export const ingestProxy = task({
 
       return result;
     } catch (error) {
-      // Log failure
-      await db.insert(ingestionLogs).values({
-        proxyId,
-        step: "error",
-        status: "failed",
-        detail: error instanceof Error ? error.message : "Unknown error",
-        finishedAt: new Date(),
-      });
+      // Log failure — truncate detail to avoid cascading DB errors from long messages
+      const errorDetail = (error instanceof Error ? error.message : "Unknown error").slice(0, 500);
+      try {
+        await db.insert(ingestionLogs).values({
+          proxyId,
+          step: "error",
+          status: "failed",
+          detail: errorDetail,
+          finishedAt: new Date(),
+        });
+      } catch {
+        // Swallow — don't let logging failures mask the real error
+      }
 
       logger.error("Proxy ingestion failed", {
         proxyId,

@@ -9,9 +9,9 @@
  * All calls use `generateObject` with Zod schemas for guaranteed valid JSON.
  */
 
-import { generateText, Output } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
+import { generateStructured } from "./structured";
 
 /* ------------------------------------------------------------------ */
 /*  Schemas                                                            */
@@ -125,30 +125,26 @@ export async function analyzeVoice(posts: string[]): Promise<VoiceProfile> {
   const sample = posts.slice(0, 300).join("\n---\n");
 
   // Run all three passes in parallel for speed
-  const [style, toneMapResult, signature] = await Promise.all([
-    generateText({
+  const [s, t, sig] = await Promise.all([
+    generateStructured({
       model,
-      output: Output.object({ schema: styleSchema }),
+      schema: styleSchema,
       maxOutputTokens: 2000,
       prompt: STYLE_PROMPT.replace("{POSTS}", sample),
     }),
-    generateText({
+    generateStructured({
       model,
-      output: Output.object({ schema: toneMapSchema }),
+      schema: toneMapSchema,
       maxOutputTokens: 2000,
       prompt: TONE_MAP_PROMPT.replace("{POSTS}", sample),
     }),
-    generateText({
+    generateStructured({
       model,
-      output: Output.object({ schema: signatureSchema }),
+      schema: signatureSchema,
       maxOutputTokens: 2000,
       prompt: SIGNATURE_PROMPT.replace("{POSTS}", sample),
     }),
   ]);
-
-  const s = style.output!;
-  const t = toneMapResult.output!;
-  const sig = signature.output!;
 
   return {
     // Style

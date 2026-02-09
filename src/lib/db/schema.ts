@@ -129,14 +129,17 @@ export const watchlist = pgTable("watchlist", {
   index("idx_watchlist_user").on(t.userId),
 ]);
 
-/* ---------- ratings ---------- */
+/* ---------- ratings / reviews ---------- */
 export const ratings = pgTable("ratings", {
   id: uuid("id").defaultRandom().primaryKey(),
   proxyId: uuid("proxy_id").references(() => proxies.id).notNull(),
   userId: uuid("user_id").references(() => users.id).notNull(),
   score: integer("score").notNull(),
+  reviewText: text("review_text"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("idx_ratings_proxy").on(t.proxyId),
+]);
 
 /* ---------- leaderboard ---------- */
 export const leaderboard = pgTable("leaderboard", {

@@ -74,11 +74,25 @@ export async function handleCreateMention(
     return;
   }
 
-  // Step 1: Verify the user exists on X
+  // Step 1: Verify the user exists on X and meets minimum requirements
   const xUser = await getUserByUsername(authorHandle);
   if (!xUser) {
     await sendTweet(
       `@${authorHandle} Couldn't find your X profile. Make sure your account is public and try again!`,
+      tweetId,
+    );
+    return;
+  }
+
+  const followers = xUser.public_metrics?.followers_count ?? 0;
+  const tweets = xUser.public_metrics?.tweet_count ?? 0;
+
+  if (followers < 200 || tweets < 200) {
+    const reasons: string[] = [];
+    if (followers < 200) reasons.push(`${followers}/200 followers`);
+    if (tweets < 200) reasons.push(`${tweets}/200 posts`);
+    await sendTweet(
+      `@${authorHandle} Your account needs at least 200 followers and 200 posts to create a proxy. You currently have ${reasons.join(" and ")}. Keep posting and try again soon!`,
       tweetId,
     );
     return;

@@ -1,4 +1,4 @@
-import { streamText } from "ai";
+import { streamText, generateText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import {
   getProxyByHandle,
@@ -9,6 +9,29 @@ import {
   updateConversationTitle,
 } from "@/lib/db/queries";
 import { getChatContext } from "@/lib/ai/chat";
+
+/** Generate a short (3-6 word) conversation title from the first exchange */
+async function generateChatTitle(
+  userMessage: string,
+  assistantResponse: string,
+): Promise<string> {
+  try {
+    const { text } = await generateText({
+      model: anthropic("claude-sonnet-4-20250514"),
+      maxOutputTokens: 30,
+      prompt: `Summarize this conversation in 3–6 words for a sidebar label. No quotes, no punctuation at the end, no emojis. Just a short phrase.
+
+User: ${userMessage.slice(0, 200)}
+Assistant: ${assistantResponse.slice(0, 200)}
+
+Title:`,
+    });
+    const title = text.trim().replace(/^["']|["']$/g, "").slice(0, 80);
+    return title || userMessage.slice(0, 60);
+  } catch {
+    return userMessage.slice(0, 60);
+  }
+}
 
 export async function POST(request: Request) {
   const { proxyHandle, messages, privyId, conversationId } =
@@ -77,12 +100,13 @@ export async function POST(request: Request) {
         );
       }
 
-      // Update title if this is the first exchange (conversation just created)
+      // Generate a smart title for the first exchange
       if (activeConversationId && !conversationId && lastUserMessage?.content) {
-        await updateConversationTitle(
-          activeConversationId,
-          lastUserMessage.content.slice(0, 80)
+        const title = await generateChatTitle(
+          lastUserMessage.content,
+          text ?? "",
         );
+        await updateConversationTitle(activeConversationId, title);
       }
     },
   });

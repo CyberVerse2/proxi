@@ -1,12 +1,21 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Wallet, Ghost, Gift } from "lucide-react";
+import {
+  Wallet,
+  Ghost,
+  Gift,
+  MessageSquare,
+  ExternalLink,
+  Bot,
+  ArrowUpRight,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import Image from "next/image";
+import Link from "next/link";
 
 const TIME_RANGES = ["1D", "1W", "1M", "1Y"] as const;
 
@@ -22,16 +31,40 @@ interface Holding {
   tokenAddress: string;
 }
 
+interface CreatedProxy {
+  id: string;
+  handle: string;
+  name: string;
+  avatar: string | null;
+  status: string;
+  totalChats: number;
+  totalMessages: number;
+  tokenAddress: string | null;
+}
+
+interface RecentChat {
+  id: string;
+  title: string;
+  updatedAt: string;
+  totalMessages: number;
+  proxyHandle: string;
+  proxyName: string;
+  proxyAvatar: string | null;
+}
+
 export default function PortfolioPage() {
-  const { walletAddress, authenticated, ready } = useAuth();
+  const { walletAddress, authenticated, ready, user } = useAuth();
   const [range, setRange] = useState<(typeof TIME_RANGES)[number]>("1D");
   const [holdings, setHoldings] = useState<Holding[]>([]);
+  const [createdProxy, setCreatedProxy] = useState<CreatedProxy | null>(null);
+  const [recentChats, setRecentChats] = useState<RecentChat[]>([]);
   const shouldFetch = ready && authenticated && !!walletAddress;
   const [loading, setLoading] = useState(true);
+  const [activityLoading, setActivityLoading] = useState(true);
 
+  // Fetch on-chain holdings
   useEffect(() => {
     if (!shouldFetch) {
-      // Derive loading=false without calling setState synchronously
       const id = requestAnimationFrame(() => setLoading(false));
       return () => cancelAnimationFrame(id);
     }
@@ -43,13 +76,55 @@ export default function PortfolioPage() {
         if (!cancelled && Array.isArray(data)) setHoldings(data);
       })
       .catch(() => {})
-      .finally(() => { if (!cancelled) setLoading(false); });
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [shouldFetch, walletAddress]);
+
+  // Fetch activity (created proxy + recent chats)
+  useEffect(() => {
+    if (!user?.id) {
+      const id = requestAnimationFrame(() => setActivityLoading(false));
+      return () => cancelAnimationFrame(id);
+    }
+
+    let cancelled = false;
+    fetch(`/api/portfolio/activity?privyId=${encodeURIComponent(user.id)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (data.createdProxy) setCreatedProxy(data.createdProxy);
+        if (Array.isArray(data.recentChats)) setRecentChats(data.recentChats);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setActivityLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const totalValue = holdings.reduce((s, h) => s + h.value, 0);
   const formattedTotal = `$${totalValue.toFixed(2)}`;
+
+  // Stable reference for relative time formatting
+  const [now] = useState(() => Date.now());
+  const formatTimeAgo = (dateStr: string) => {
+    const diff = now - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60_000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
+  };
 
   return (
     <div className="p-6 md:p-8 pt-8 flex justify-center">
@@ -145,6 +220,42 @@ export default function PortfolioPage() {
               </Button>
             </Card>
 
+            {/* Your Proxy card (if creator) */}
+            {createdProxy && (
+              <Card className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Bot size={14} className="text-lime" />
+                  <h3 className="text-white font-semibold text-sm">Your Proxy</h3>
+                </div>
+                <Link href={`/${createdProxy.handle}`}>
+                  <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/4 transition-colors cursor-pointer">
+                    {createdProxy.avatar ? (
+                      <Image
+                        src={createdProxy.avatar}
+                        alt={createdProxy.name}
+                        width={40}
+                        height={40}
+                        className="rounded-lg object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-sm font-bold text-white">
+                        {createdProxy.name.charAt(0)}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm font-medium truncate">
+                        {createdProxy.name}
+                      </p>
+                      <p className="text-gray text-xs">
+                        {createdProxy.totalChats} chats &middot; {createdProxy.totalMessages} msgs
+                      </p>
+                    </div>
+                    <ArrowUpRight size={14} className="text-gray shrink-0" />
+                  </div>
+                </Link>
+              </Card>
+            )}
+
             {/* Referrals card */}
             <Card className="space-y-3">
               <div className="flex items-center gap-2">
@@ -200,16 +311,17 @@ export default function PortfolioPage() {
                     <th className="text-left pb-3 font-medium">24h Trend</th>
                     <th className="text-left pb-3 font-medium">Minutes Held</th>
                     <th className="text-left pb-3 font-medium">Value</th>
+                    <th className="text-right pb-3 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {holdings.map((h) => (
                     <tr
                       key={h.id}
-                      className="border-b border-white/3 hover:bg-white/2"
+                      className="border-b border-white/3 hover:bg-white/2 group"
                     >
                       <td className="py-3">
-                        <div className="flex items-center gap-2.5">
+                        <Link href={`/${h.handle}`} className="flex items-center gap-2.5">
                           <Image
                             src={h.avatar || "/mock-avatar.jpg"}
                             alt={h.name}
@@ -217,10 +329,10 @@ export default function PortfolioPage() {
                             height={32}
                             className="w-8 h-8 rounded-lg object-cover"
                           />
-                          <span className="text-white font-medium text-[13px]">
+                          <span className="text-white font-medium text-[13px] group-hover:text-lime transition-colors">
                             {h.name}
                           </span>
-                        </div>
+                        </Link>
                       </td>
                       <td className="py-3">
                         <span
@@ -241,6 +353,32 @@ export default function PortfolioPage() {
                       <td className="py-3 text-white font-medium text-sm">
                         ${h.value.toFixed(2)}
                       </td>
+                      <td className="py-3 text-right">
+                        <div className="flex items-center gap-1.5 justify-end">
+                          <Link href={`/${h.handle}/chat`}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-[11px] text-gray hover:text-white gap-1"
+                            >
+                              <MessageSquare size={12} /> Chat
+                            </Button>
+                          </Link>
+                          <a
+                            href={`https://dexscreener.com/base/${h.tokenAddress}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-[11px] text-gray hover:text-white gap-1"
+                            >
+                              <ExternalLink size={12} /> Trade
+                            </Button>
+                          </a>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -258,6 +396,64 @@ export default function PortfolioPage() {
                 </div>
                 <span>Page 1 of 1</span>
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* Recent Conversations */}
+        <div>
+          <h2 className="text-white font-semibold text-lg mb-4">Recent Chats</h2>
+
+          {activityLoading ? (
+            <Card className="text-center py-8">
+              <div className="w-8 h-8 border-2 border-lime/30 border-t-lime rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-gray text-xs">Loading chats...</p>
+            </Card>
+          ) : !user?.id ? (
+            <Card className="text-center py-8">
+              <MessageSquare size={32} className="text-gray/30 mx-auto mb-2" />
+              <p className="text-gray text-sm">Sign in to view your chat history</p>
+            </Card>
+          ) : recentChats.length === 0 ? (
+            <Card className="text-center py-8">
+              <MessageSquare size={32} className="text-gray/30 mx-auto mb-2" />
+              <p className="text-gray text-sm">No conversations yet</p>
+              <p className="text-gray/60 text-xs mt-1">
+                Start chatting with a proxy to see your conversations here
+              </p>
+            </Card>
+          ) : (
+            <div className="grid gap-2">
+              {recentChats.map((chat) => (
+                <Link key={chat.id} href={`/${chat.proxyHandle}/chat`}>
+                  <Card className="flex items-center gap-3 p-3 hover:bg-white/4 transition-colors cursor-pointer">
+                    {chat.proxyAvatar ? (
+                      <Image
+                        src={chat.proxyAvatar}
+                        alt={chat.proxyName}
+                        width={36}
+                        height={36}
+                        className="rounded-lg object-cover shrink-0"
+                      />
+                    ) : (
+                      <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center text-xs font-bold text-white shrink-0">
+                        {chat.proxyName.charAt(0)}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-white text-sm font-medium truncate">
+                          {chat.title}
+                        </span>
+                      </div>
+                      <p className="text-gray text-xs mt-0.5">
+                        {chat.proxyName} &middot; {chat.totalMessages} msg{chat.totalMessages !== 1 ? "s" : ""} &middot; {formatTimeAgo(chat.updatedAt)}
+                      </p>
+                    </div>
+                    <ArrowUpRight size={14} className="text-gray shrink-0" />
+                  </Card>
+                </Link>
+              ))}
             </div>
           )}
         </div>

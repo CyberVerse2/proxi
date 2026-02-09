@@ -5,6 +5,7 @@ import { ArrowUp, Square, ChevronDown } from 'lucide-react';
 import { useChat } from '@/hooks/use-chat';
 import { useAuth } from '@/hooks/use-auth';
 import Image from 'next/image';
+import { ReviewModal } from './review-modal';
 
 interface ChatClientProps {
   handle: string;
@@ -43,6 +44,22 @@ export function ChatClient({
   const bottomRef = useRef<HTMLDivElement>(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
 
+  // Review modal state
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [hasReviewed, setHasReviewed] = useState(false);
+  const reviewPromptedRef = useRef(false);
+
+  // Check if user already reviewed this proxy
+  useEffect(() => {
+    if (!user?.id) return;
+    fetch(`/api/reviews?handle=${encodeURIComponent(handle)}&privyId=${encodeURIComponent(user.id)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.hasReviewed) setHasReviewed(true);
+      })
+      .catch(() => {});
+  }, [user?.id, handle]);
+
   // When the parent changes the conversation (from history panel), load it
   useEffect(() => {
     if (externalConvoId && externalConvoId !== hookConvoId) {
@@ -66,9 +83,19 @@ export function ChatClient({
   useEffect(() => {
     if (wasLoadingRef.current && !isLoading) {
       onMessageComplete?.();
+
+      // Check if we should prompt for a review
+      if (!hasReviewed && !reviewPromptedRef.current && user?.id) {
+        const userMsgCount = messages.filter((m) => m.role === 'user').length;
+        if (userMsgCount >= 3) {
+          reviewPromptedRef.current = true;
+          // Small delay so the last message renders first
+          setTimeout(() => setShowReviewModal(true), 1500);
+        }
+      }
     }
     wasLoadingRef.current = isLoading;
-  }, [isLoading, onMessageComplete]);
+  }, [isLoading, onMessageComplete, hasReviewed, messages, user?.id]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -203,7 +230,7 @@ export function ChatClient({
                     {lines.map((line, i) => (
                       <div
                         key={`${msg.id}-${i}`}
-                        className="max-w-[85%] rounded-2xl rounded-bl-md px-4 py-3 text-[14px] leading-relaxed bg-white/8 backdrop-blur-md text-white border border-white/6"
+                        className="w-fit max-w-[85%] rounded-2xl rounded-bl-md px-4 py-3 text-[14px] leading-relaxed bg-white/8 backdrop-blur-md text-white border border-white/6"
                       >
                         {line}
                       </div>
@@ -233,7 +260,7 @@ export function ChatClient({
                       )}
                     </div>
                     <div className="flex justify-end">
-                      <div className="max-w-[85%] rounded-2xl rounded-br-md px-4 py-3 text-[14px] leading-relaxed bg-white/8 backdrop-blur-md text-white border border-white/6">
+                      <div className="w-fit max-w-[85%] rounded-2xl rounded-br-md px-4 py-3 text-[14px] leading-relaxed bg-white/8 backdrop-blur-md text-white border border-white/6">
                         {msg.content}
                       </div>
                     </div>
@@ -296,6 +323,18 @@ export function ChatClient({
           </div>
         </div>
       </div>
+
+      {/* Review modal */}
+      {showReviewModal && user?.id && (
+        <ReviewModal
+          proxyHandle={handle}
+          proxyName={name}
+          proxyAvatar={avatar}
+          privyId={user.id}
+          onClose={() => setShowReviewModal(false)}
+          onSubmitted={() => setHasReviewed(true)}
+        />
+      )}
     </div>
   );
 }
