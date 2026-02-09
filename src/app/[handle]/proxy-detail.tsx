@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { BadgeCheck, Copy, Star, Brain, Crown, Gem, Info, ExternalLink, Droplets, TrendingUp, MessageSquare, Pencil, Loader2, ArrowLeftRight, DollarSign } from 'lucide-react';
+import { BadgeCheck, Copy, Star, Brain, Crown, Gem, Info, ExternalLink, Droplets, TrendingUp, MessageSquare, Pencil, Loader2, ArrowLeftRight, DollarSign, Coins, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -140,6 +140,43 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
       refreshBalances();
     }
   };
+  // Claim fees state
+  const [claimLoading, setClaimLoading] = useState(false);
+  const [claimResult, setClaimResult] = useState<{
+    success: boolean;
+    txHash?: string;
+    amount?: string;
+    message?: string;
+  } | null>(null);
+
+  const handleClaimFees = async () => {
+    if (!authenticated) {
+      login();
+      return;
+    }
+    setClaimLoading(true);
+    setClaimResult(null);
+    try {
+      const res = await fetch('/api/claim-fees', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ handle: proxy.xHandle }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setClaimResult({ success: false, message: data.error ?? 'Failed to claim fees' });
+      } else if (data.claimed) {
+        setClaimResult({ success: true, txHash: data.txHash, amount: data.amount });
+      } else {
+        setClaimResult({ success: true, message: data.message ?? 'No fees to claim' });
+      }
+    } catch {
+      setClaimResult({ success: false, message: 'Failed to claim fees' });
+    } finally {
+      setClaimLoading(false);
+    }
+  };
+
   const [reviews, setReviews] = useState<ReviewItem[]>(initialReviews);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewScore, setReviewScore] = useState(0);
@@ -322,37 +359,100 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
             <div className="space-y-6">
               {/* Fee earnings banner */}
               {proxy.tokenAddress && (
-                <Card className="flex items-center gap-4 p-4">
-                  <img
-                    src={avatar}
-                    alt={name}
-                    width={48}
-                    height={48}
-                    className="rounded-xl object-cover shrink-0"
-                  />
-                  <div className="flex-1 min-w-0 space-y-1.5">
-                    <Badge className="bg-purple/15 text-purple border-purple/20">
-                      <Gem size={14} className="fill-purple" /> Fee earnings
-                    </Badge>
-                    <p className="text-white text-xl font-bold">
-                      {feeData ? `${parseFloat(feeData.total).toFixed(6)} WETH` : '0.000000 WETH'}
-                    </p>
-                    <div className="flex items-center gap-3 text-sm text-gray">
-                      <span>
-                        Claimed:{' '}
-                        <span className="text-white/70">
-                          {feeData ? `${parseFloat(feeData.claimed).toFixed(6)}` : '0.000000'}
-                        </span>
-                      </span>
-                      <span>&middot;</span>
-                      <span>
-                        Unclaimed:{' '}
-                        <span className="text-emerald-400">
-                          {feeData ? `${parseFloat(feeData.unclaimed).toFixed(6)}` : '0.000000'}
-                        </span>
-                      </span>
+                <Card className="p-5 space-y-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-4 min-w-0">
+                      <img
+                        src={avatar}
+                        alt={name}
+                        width={48}
+                        height={48}
+                        className="rounded-xl object-cover shrink-0"
+                      />
+                      <div className="min-w-0 space-y-1">
+                        <Badge className="bg-purple/15 text-purple border-purple/20">
+                          <Gem size={14} className="fill-purple" /> Fee earnings
+                        </Badge>
+                        <p className="text-white text-xl font-bold">
+                          {feeData ? `${parseFloat(feeData.total).toFixed(6)} WETH` : '0.000000 WETH'}
+                        </p>
+                      </div>
                     </div>
                   </div>
+
+                  {/* Claimed / Unclaimed breakdown */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-white/4 rounded-xl px-4 py-3">
+                      <p className="text-gray text-xs font-medium mb-0.5">Claimed</p>
+                      <p className="text-white/70 text-base font-semibold">
+                        {feeData ? `${parseFloat(feeData.claimed).toFixed(6)}` : '0.000000'}
+                        <span className="text-gray text-xs ml-1">WETH</span>
+                      </p>
+                    </div>
+                    <div className="bg-emerald-400/5 border border-emerald-400/10 rounded-xl px-4 py-3">
+                      <p className="text-gray text-xs font-medium mb-0.5">Unclaimed</p>
+                      <p className="text-emerald-400 text-base font-semibold">
+                        {feeData ? `${parseFloat(feeData.unclaimed).toFixed(6)}` : '0.000000'}
+                        <span className="text-emerald-400/60 text-xs ml-1">WETH</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Claim result feedback */}
+                  {claimResult && (
+                    <div className={cn(
+                      'rounded-xl px-4 py-3 text-sm',
+                      claimResult.success
+                        ? 'bg-emerald-400/10 border border-emerald-400/20 text-emerald-400'
+                        : 'bg-red-400/10 border border-red-400/20 text-red-400',
+                    )}>
+                      {claimResult.success ? (
+                        claimResult.txHash ? (
+                          <div className="flex items-center gap-2">
+                            <CheckCircle size={16} className="shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium">Claimed {parseFloat(claimResult.amount ?? '0').toFixed(6)} WETH</p>
+                              <a
+                                href={`https://basescan.org/tx/${claimResult.txHash}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-emerald-400/80 text-xs hover:underline flex items-center gap-1 mt-0.5"
+                              >
+                                View on Basescan <ExternalLink size={11} />
+                              </a>
+                            </div>
+                          </div>
+                        ) : (
+                          <p>{claimResult.message}</p>
+                        )
+                      ) : (
+                        <p>{claimResult.message}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Claim button */}
+                  {feeData && parseFloat(feeData.unclaimed) > 0 && (
+                    <Button
+                      className="w-full rounded-xl h-11 text-sm font-bold cursor-pointer gap-2"
+                      onClick={handleClaimFees}
+                      disabled={claimLoading}
+                    >
+                      {claimLoading ? (
+                        <span className="flex items-center gap-2">
+                          <Loader2 size={16} className="animate-spin" /> Claiming...
+                        </span>
+                      ) : !authenticated ? (
+                        <span className="flex items-center gap-2">
+                          <Coins size={16} /> Login to Claim Fees
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-2">
+                          <Coins size={16} /> Claim {parseFloat(feeData.unclaimed).toFixed(6)} WETH
+                        </span>
+                      )}
+                    </Button>
+                  )}
                 </Card>
               )}
               {/* Direct Message card */}
