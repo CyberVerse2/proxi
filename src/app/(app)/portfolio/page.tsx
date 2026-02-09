@@ -4,16 +4,21 @@ import { useState, useEffect } from "react";
 import {
   Wallet,
   Ghost,
-  Gift,
   MessageSquare,
   ExternalLink,
   Bot,
   ArrowUpRight,
+  ArrowDownToLine,
+  ArrowUpFromLine,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { useSwap } from "@/hooks/use-swap";
+import { useFundWallet } from "@privy-io/react-auth";
+import { WithdrawModal } from "@/components/modals/withdraw-modal";
+import { base } from "viem/chains";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -54,6 +59,13 @@ interface RecentChat {
 
 export default function PortfolioPage() {
   const { walletAddress, authenticated, ready, user } = useAuth();
+  const { getUsdcBalance } = useSwap();
+  const { fundWallet } = useFundWallet({
+    onUserExited() {
+      // Refresh balance after user exits the funding flow
+      getUsdcBalance().then(setUsdcBalance);
+    },
+  });
   const [range, setRange] = useState<(typeof TIME_RANGES)[number]>("1D");
   const [holdings, setHoldings] = useState<Holding[]>([]);
   const [createdProxy, setCreatedProxy] = useState<CreatedProxy | null>(null);
@@ -61,6 +73,25 @@ export default function PortfolioPage() {
   const shouldFetch = ready && authenticated && !!walletAddress;
   const [loading, setLoading] = useState(true);
   const [activityLoading, setActivityLoading] = useState(true);
+  const [usdcBalance, setUsdcBalance] = useState("0");
+  const [showWithdraw, setShowWithdraw] = useState(false);
+
+  // Fetch USDC balance
+  useEffect(() => {
+    if (!walletAddress) return;
+    getUsdcBalance().then(setUsdcBalance);
+  }, [walletAddress, getUsdcBalance]);
+
+  const handleDeposit = () => {
+    if (!walletAddress) return;
+    fundWallet({
+      address: walletAddress,
+      options: {
+        chain: base,
+        asset: "USDC",
+      },
+    });
+  };
 
   // Fetch on-chain holdings
   useEffect(() => {
@@ -197,9 +228,6 @@ export default function PortfolioPage() {
             <Card className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-white font-semibold text-sm">Total balance</h3>
-                <Button variant="secondary" size="sm" className="h-7 px-3 text-[11px] gap-1.5">
-                  <Gift size={12} /> Gift
-                </Button>
               </div>
 
               <span className="text-white text-2xl font-bold block">{formattedTotal}</span>
@@ -210,14 +238,31 @@ export default function PortfolioPage() {
                   <span className="text-white text-xs font-medium">{formattedTotal}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-gray text-xs">Available balance</span>
-                  <span className="text-white text-xs font-medium">$0.00</span>
+                  <span className="text-gray text-xs">USDC balance</span>
+                  <span className="text-white text-xs font-medium">
+                    ${parseFloat(usdcBalance).toFixed(2)}
+                  </span>
                 </div>
               </div>
 
-              <Button variant="outline" size="sm" className="rounded-lg w-full">
-                Withdraw
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg flex-1 gap-1.5 cursor-pointer"
+                  onClick={handleDeposit}
+                >
+                  <ArrowDownToLine size={13} /> Deposit
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg flex-1 gap-1.5 cursor-pointer"
+                  onClick={() => setShowWithdraw(true)}
+                >
+                  <ArrowUpFromLine size={13} /> Withdraw
+                </Button>
+              </div>
             </Card>
 
             {/* Your Proxy card (if creator) */}
@@ -307,9 +352,9 @@ export default function PortfolioPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-gray text-xs border-b border-white/6">
-                    <th className="text-left pb-3 font-medium">User</th>
+                    <th className="text-left pb-3 font-medium">Proxy</th>
                     <th className="text-left pb-3 font-medium">24h Trend</th>
-                    <th className="text-left pb-3 font-medium">Minutes Held</th>
+                    <th className="text-left pb-3 font-medium">Messages</th>
                     <th className="text-left pb-3 font-medium">Value</th>
                     <th className="text-right pb-3 font-medium">Actions</th>
                   </tr>
@@ -348,7 +393,7 @@ export default function PortfolioPage() {
                         </span>
                       </td>
                       <td className="py-3 text-gray text-sm">
-                        {h.amount.toFixed(2)}
+                        {Math.floor(h.amount)} msgs
                       </td>
                       <td className="py-3 text-white font-medium text-sm">
                         ${h.value.toFixed(2)}
@@ -458,6 +503,13 @@ export default function PortfolioPage() {
           )}
         </div>
       </div>
+
+      {showWithdraw && (
+        <WithdrawModal
+          onClose={() => setShowWithdraw(false)}
+          onSuccess={() => getUsdcBalance().then(setUsdcBalance)}
+        />
+      )}
     </div>
   );
 }

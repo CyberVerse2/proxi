@@ -1,13 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { BadgeCheck, Copy, Star, Brain, Crown, Gem, Info, ExternalLink, Droplets, TrendingUp, MessageSquare, Pencil } from 'lucide-react';
+import { BadgeCheck, Copy, Star, Brain, Crown, Gem, Info, ExternalLink, Droplets, TrendingUp, MessageSquare, Pencil, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
+import { useSwap } from '@/hooks/use-swap';
 import type { TokenMarketData } from '@/lib/chain/token';
 
 interface ProxyData {
@@ -51,12 +52,76 @@ interface FeeData {
 export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, reviews: initialReviews = [] }: { proxy: ProxyData; feeData?: FeeData | null; tokenData?: TokenMarketData | null; liveMessageCount?: number; reviews?: ReviewItem[] }) {
   const [activeTab, setActiveTab] = useState<string>('About Me');
   const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy');
-  const [amount, setAmount] = useState('1.0');
-  const [amountUnit, setAmountUnit] = useState<'minutes' | 'usd'>('minutes');
+  const [amount, setAmount] = useState('5');
   const [copied, setCopied] = useState(false);
 
-  // Reviews state
-  const { user } = useAuth();
+  // Auth + Swap
+  const { user, walletAddress, login, authenticated } = useAuth();
+  const {
+    getPrice,
+    executeSwap,
+    getUsdcBalance,
+    getTokenBalance,
+    loading: swapLoading,
+    error: swapError,
+  } = useSwap();
+
+  // Balances
+  const [usdcBalance, setUsdcBalance] = useState('0');
+  const [tokenBalance, setTokenBalance] = useState('0');
+  const [priceEstimate, setPriceEstimate] = useState<string | null>(null);
+  const [swapSuccess, setSwapSuccess] = useState<string | null>(null);
+
+  // Fetch balances
+  const refreshBalances = useCallback(async () => {
+    if (!walletAddress) return;
+    const [usdc, tok] = await Promise.all([
+      getUsdcBalance(),
+      proxy.tokenAddress ? getTokenBalance(proxy.tokenAddress) : Promise.resolve('0'),
+    ]);
+    setUsdcBalance(usdc);
+    setTokenBalance(tok);
+  }, [walletAddress, getUsdcBalance, getTokenBalance, proxy.tokenAddress]);
+
+  useEffect(() => {
+    refreshBalances();
+  }, [refreshBalances]);
+
+  // Get price estimate when amount changes
+  useEffect(() => {
+    if (!proxy.tokenAddress || !amount || parseFloat(amount) <= 0) {
+      setPriceEstimate(null);
+      return;
+    }
+    const timeout = setTimeout(async () => {
+      // Buy: user specifies USDC to spend → estimate messages received
+      // Sell: user specifies messages to sell → estimate USDC received
+      const result = await getPrice(
+        proxy.tokenAddress!,
+        amount,
+        tradeMode === 'buy' ? 'buy' : 'sell',
+      );
+      if (result) {
+        const val =
+          tradeMode === 'buy'
+            ? `~${Math.floor(Number(result.buyAmount) / 1e18)} messages`
+            : `~$${(Number(result.buyAmount) / 1e6).toFixed(2)} USDC`;
+        setPriceEstimate(val);
+      }
+    }, 600);
+    return () => clearTimeout(timeout);
+  }, [amount, tradeMode, proxy.tokenAddress, getPrice]);
+
+  const handleSwap = async () => {
+    if (!proxy.tokenAddress || !amount) return;
+    setSwapSuccess(null);
+    const txHash = await executeSwap(proxy.tokenAddress, amount, tradeMode);
+    if (txHash) {
+      setSwapSuccess(txHash);
+      setAmount('');
+      refreshBalances();
+    }
+  };
   const [reviews, setReviews] = useState<ReviewItem[]>(initialReviews);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewScore, setReviewScore] = useState(0);
@@ -614,7 +679,7 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
             {/* Buy/Sell toggle */}
             <div className="flex bg-white/6 rounded-xl p-1">
               <button
-                onClick={() => setTradeMode('buy')}
+                onClick={() => { setTradeMode('buy'); setAmount('5'); }}
                 className={cn(
                   'flex-1 py-2.5 text-sm font-semibold rounded-[10px] transition-colors cursor-pointer',
                   tradeMode === 'buy' ? 'bg-white/12 text-white' : 'text-gray hover:text-white'
@@ -623,7 +688,7 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
                 Buy
               </button>
               <button
-                onClick={() => setTradeMode('sell')}
+                onClick={() => { setTradeMode('sell'); setAmount('10'); }}
                 className={cn(
                   'flex-1 py-2.5 text-sm font-semibold rounded-[10px] transition-colors cursor-pointer',
                   tradeMode === 'sell' ? 'bg-white/12 text-white' : 'text-gray hover:text-white'
@@ -649,72 +714,123 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
                   {priceChange.toFixed(2)}%
                 </span>
               </div>
+              <p className="text-gray text-xs mt-1">1 token = 1 message</p>
             </div>
 
-            {/* Amount input + unit toggle */}
+            {/* Amount input */}
             <div className="space-y-2.5">
+              <label className="text-gray text-xs font-medium">
+                {tradeMode === 'buy' ? 'Amount (USDC)' : 'Messages to sell'}
+              </label>
               <div className="flex items-center gap-2 bg-white/4 border border-white/10 rounded-xl px-3 py-3.5">
                 <input
                   type="number"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   className="flex-1 min-w-0 bg-transparent text-white text-base font-medium outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  placeholder="0.0"
+                  placeholder="0"
+                  min="1"
+                  step={tradeMode === 'buy' ? '0.01' : '1'}
                 />
+                <span className="text-gray text-sm shrink-0">{tradeMode === 'buy' ? 'USDC' : 'msgs'}</span>
               </div>
-              <div className="flex bg-white/6 rounded-xl p-1">
-                <button
-                  onClick={() => setAmountUnit('minutes')}
-                  className={cn(
-                    'flex-1 py-2 text-xs font-medium rounded-[10px] transition-colors cursor-pointer',
-                    amountUnit === 'minutes'
-                      ? 'bg-white/12 text-white'
-                      : 'text-gray hover:text-white'
-                  )}
-                >
-                  Minutes
-                </button>
-                <button
-                  onClick={() => setAmountUnit('usd')}
-                  className={cn(
-                    'flex-1 py-2 text-xs font-medium rounded-[10px] transition-colors cursor-pointer',
-                    amountUnit === 'usd' ? 'bg-white/12 text-white' : 'text-gray hover:text-white'
-                  )}
-                >
-                  USD
-                </button>
-              </div>
+
+              {/* Price estimate */}
+              {priceEstimate && (
+                <p className="text-gray text-xs">
+                  You {tradeMode === 'buy' ? 'receive' : 'get'}: <span className="text-white">{priceEstimate}</span>
+                </p>
+              )}
             </div>
 
             {/* Quick amount buttons */}
             <div className="flex gap-2">
-              {['15 min', '30 min', 'Max'].map((label) => (
+              {(tradeMode === 'buy' ? ['5', '10', '25'] : ['10', '50', '100']).map((label) => (
                 <button
                   key={label}
-                  onClick={() => {
-                    if (label === '15 min') setAmount('15');
-                    else if (label === '30 min') setAmount('30');
-                  }}
-                  className="flex-1 py-2.5 text-sm font-medium text-gray border border-white/10 rounded-xl hover:text-white hover:border-white/20 transition-colors cursor-pointer"
+                  onClick={() => setAmount(label)}
+                  className={cn(
+                    'flex-1 py-2.5 text-sm font-medium border rounded-xl transition-colors cursor-pointer',
+                    amount === label
+                      ? 'border-lime/40 text-lime bg-lime/5'
+                      : 'border-white/10 text-gray hover:text-white hover:border-white/20'
+                  )}
                 >
-                  {label}
+                  {tradeMode === 'buy' ? `$${label}` : `${label} msgs`}
                 </button>
               ))}
             </div>
 
-            {/* Available balance */}
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray">Available Balance</span>
-              <span className="text-white font-medium">0.00 mins</span>
+            {/* Balance */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray">USDC Balance</span>
+                <span className="text-white font-medium">
+                  ${parseFloat(usdcBalance).toFixed(2)}
+                </span>
+              </div>
+              {proxy.tokenAddress && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray">Messages owned</span>
+                  <span className="text-white font-medium">
+                    {Math.floor(parseFloat(tokenBalance))} msgs
+                  </span>
+                </div>
+              )}
             </div>
 
+            {/* Error / Success */}
+            {swapError && (
+              <p className="text-red-400 text-xs bg-red-400/10 rounded-lg px-3 py-2">{swapError}</p>
+            )}
+            {swapSuccess && (
+              <div className="text-emerald-400 text-xs bg-emerald-400/10 rounded-lg px-3 py-2">
+                Swap successful!{' '}
+                <a
+                  href={`https://basescan.org/tx/${swapSuccess}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline"
+                >
+                  View tx
+                </a>
+              </div>
+            )}
+
             {/* CTA button */}
-            <Button className="w-full rounded-lg h-14! text-base font-bold" size="lg">
-              Verify wallet
-            </Button>
+            {!authenticated ? (
+              <Button
+                className="w-full rounded-lg h-14! text-base font-bold cursor-pointer"
+                size="lg"
+                onClick={login}
+              >
+                Connect Wallet
+              </Button>
+            ) : !proxy.tokenAddress ? (
+              <Button className="w-full rounded-lg h-14! text-base font-bold" size="lg" disabled>
+                Token not deployed
+              </Button>
+            ) : (
+              <Button
+                className="w-full rounded-lg h-14! text-base font-bold cursor-pointer"
+                size="lg"
+                onClick={handleSwap}
+                disabled={swapLoading || !amount || parseFloat(amount) <= 0}
+              >
+                {swapLoading ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 size={18} className="animate-spin" /> Processing...
+                  </span>
+                ) : (
+                  tradeMode === 'buy'
+                    ? `Buy with $${amount || '0'} USDC`
+                    : `Sell ${amount || '0'} Messages`
+                )}
+              </Button>
+            )}
 
             <p className="text-gray/40 text-xs text-center flex items-center justify-center gap-1.5">
-              <Info size={11} /> Estimate based on current market price
+              <Info size={11} /> 1% fee &middot; 1% slippage
             </p>
           </Card>
 
@@ -723,12 +839,16 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
             <h3 className="text-white font-semibold text-sm">Your position</h3>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-gray text-xs">Minutes owned</span>
-                <span className="text-white text-sm">—</span>
+                <span className="text-gray text-xs">Messages owned</span>
+                <span className="text-white text-sm font-medium">
+                  {Math.floor(parseFloat(tokenBalance))}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-gray text-xs">Market value</span>
-                <span className="text-white text-sm font-medium">$0.00</span>
+                <span className="text-white text-sm font-medium">
+                  ${(parseFloat(tokenBalance) * price).toFixed(2)}
+                </span>
               </div>
             </div>
           </Card>
