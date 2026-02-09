@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useWallets } from "@privy-io/react-auth";
+import { useWallets, useSendTransaction } from "@privy-io/react-auth";
 import { parseUnits, formatUnits, encodeFunctionData, parseAbi } from "viem";
 
 // USDC on Base — 6 decimals
@@ -16,6 +16,7 @@ const ERC20_ABI = parseAbi([
   "function balanceOf(address) view returns (uint256)",
   "function allowance(address owner, address spender) view returns (uint256)",
   "function approve(address spender, uint256 amount) returns (bool)",
+  "function transfer(address to, uint256 amount) returns (bool)",
 ]);
 
 interface SwapQuote {
@@ -36,6 +37,7 @@ interface SwapQuote {
 
 export function useSwap() {
   const { wallets } = useWallets();
+  const { sendTransaction } = useSendTransaction();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -198,7 +200,7 @@ export function useSwap() {
         const currentAllowance = BigInt(allowanceResult as string);
 
         if (currentAllowance < sellAmountWei) {
-          // Approve the allowance holder to spend tokens
+          // Approve the allowance holder to spend tokens (gas sponsored)
           const approveData = encodeFunctionData({
             abi: ERC20_ABI,
             functionName: "approve",
@@ -208,47 +210,37 @@ export function useSwap() {
             ],
           });
 
-          await provider.request({
-            method: "eth_sendTransaction",
-            params: [
-              {
-                from: wallet.address,
-                to: sellTokenAddress,
-                data: approveData,
-              },
-            ],
-          });
+          await sendTransaction(
+            { to: sellTokenAddress, data: approveData },
+            { sponsor: true, address: wallet.address },
+          );
 
           // Wait a bit for approval to propagate
           await new Promise((resolve) => setTimeout(resolve, 3000));
         }
 
-        // 3. Execute the swap
-        const txHash = await provider.request({
-          method: "eth_sendTransaction",
-          params: [
-            {
-              from: wallet.address,
-              to: quote.transaction.to,
-              data: quote.transaction.data,
-              gas: `0x${parseInt(quote.transaction.gas).toString(16)}`,
-              value: quote.transaction.value
-                ? `0x${BigInt(quote.transaction.value).toString(16)}`
-                : "0x0",
-            },
-          ],
-        });
+        // 3. Execute the swap (gas sponsored)
+        const { hash } = await sendTransaction(
+          {
+            to: quote.transaction.to,
+            data: quote.transaction.data,
+            gasLimit: parseInt(quote.transaction.gas),
+            value: quote.transaction.value
+              ? BigInt(quote.transaction.value)
+              : 0n,
+          },
+          { sponsor: true, address: wallet.address },
+        );
 
-        return txHash as string;
+        return hash;
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Swap failed";
-        setError(msg);
+        setError(err instanceof Error ? err.message : "Swap failed");
         return null;
       } finally {
         setLoading(false);
       }
     },
-    [getWallet, getQuote],
+    [getWallet, getQuote, sendTransaction],
   );
 
   /**
@@ -300,12 +292,58 @@ export function useSwap() {
     [getWallet],
   );
 
+  /**
+   * Send USDC from the connected wallet to a recipient address.
+   * Gas is sponsored via Privy.
+   * Returns the tx hash on success, null on failure.
+   */
+  const sendUsdc = useCallback(
+    async (recipient: string, amount: string): Promise<string | null> => {
+      setLoading(true);
+      setError(null);
+
+      const wallet = getWallet();
+      if (!wallet) {
+        setError("No wallet connected");
+        setLoading(false);
+        return null;
+      }
+
+      try {
+        const amountWei = parseUnits(
+          parseFloat(amount).toFixed(USDC_DECIMALS),
+          USDC_DECIMALS,
+        );
+
+        const data = encodeFunctionData({
+          abi: ERC20_ABI,
+          functionName: "transfer",
+          args: [recipient as `0x${string}`, amountWei],
+        });
+
+        const { hash } = await sendTransaction(
+          { to: USDC_ADDRESS, data },
+          { sponsor: true, address: wallet.address },
+        );
+
+        return hash;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Transfer failed");
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [getWallet, sendTransaction],
+  );
+
   return {
     getPrice,
     getQuote,
     executeSwap,
     getUsdcBalance,
     getTokenBalance,
+    sendUsdc,
     loading,
     error,
     walletAddress: getWallet()?.address ?? null,

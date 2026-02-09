@@ -5,7 +5,6 @@ import { X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useSwap } from '@/hooks/use-swap';
-import { useAuth } from '@/hooks/use-auth';
 
 interface WithdrawModalProps {
   onClose: () => void;
@@ -13,21 +12,19 @@ interface WithdrawModalProps {
 }
 
 export function WithdrawModal({ onClose, onSuccess }: WithdrawModalProps) {
-  const { getUsdcBalance } = useSwap();
-  const { getAccessToken } = useAuth();
+  const { getUsdcBalance, sendUsdc, loading, error: swapError } = useSwap();
   const [usdcBalance, setUsdcBalance] = useState('0');
   const [balanceLoading, setBalanceLoading] = useState(true);
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount] = useState('');
   const [txHash, setTxHash] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchBalance = useCallback(async () => {
     setBalanceLoading(true);
     try {
-      const bal = await getUsdcBalance();
-      setUsdcBalance(bal);
+      const usdc = await getUsdcBalance();
+      setUsdcBalance(usdc);
     } finally {
       setBalanceLoading(false);
     }
@@ -44,39 +41,14 @@ export function WithdrawModal({ onClose, onSuccess }: WithdrawModalProps) {
   const handleWithdraw = async () => {
     if (!recipient || !amount || parseFloat(amount) <= 0) return;
 
-    setLoading(true);
     setError(null);
 
-    try {
-      // Get auth token for server-side verification
-      const token = await getAccessToken?.();
-      if (!token) {
-        setError('Not authenticated. Please sign in again.');
-        setLoading(false);
-        return;
-      }
-
-      const res = await fetch('/api/withdraw', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ recipient, amount }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error ?? 'Withdrawal failed');
-      }
-
-      setTxHash(data.hash);
+    const hash = await sendUsdc(recipient, amount);
+    if (hash) {
+      setTxHash(hash);
       onSuccess();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Withdrawal failed');
-    } finally {
-      setLoading(false);
+    } else if (swapError) {
+      setError(swapError);
     }
   };
 
@@ -149,15 +121,17 @@ export function WithdrawModal({ onClose, onSuccess }: WithdrawModalProps) {
         ) : (
           <div className="space-y-4">
             {/* Balance */}
-            <Card className="p-4 flex items-center justify-between">
-              <span className="text-gray text-base">Available</span>
-              {balanceLoading ? (
-                <div className="h-5 w-24 bg-white/6 rounded animate-pulse" />
-              ) : (
-                <span className="text-white font-medium text-base">
-                  {parseFloat(usdcBalance).toFixed(2)} USDC
-                </span>
-              )}
+            <Card className="p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-gray text-base">Available</span>
+                {balanceLoading ? (
+                  <div className="h-5 w-24 bg-white/6 rounded animate-pulse" />
+                ) : (
+                  <span className="text-white font-medium text-base">
+                    {parseFloat(usdcBalance).toFixed(2)} USDC
+                  </span>
+                )}
+              </div>
             </Card>
 
             {/* Recipient */}
@@ -193,8 +167,8 @@ export function WithdrawModal({ onClose, onSuccess }: WithdrawModalProps) {
             </div>
 
             {/* Error */}
-            {error && (
-              <p className="text-red-400 text-sm bg-red-400/10 rounded-lg px-3 py-2">{error}</p>
+            {(error || swapError) && (
+              <p className="text-red-400 text-sm bg-red-400/10 rounded-lg px-3 py-2">{error || swapError}</p>
             )}
 
             {/* Submit */}
@@ -219,7 +193,7 @@ export function WithdrawModal({ onClose, onSuccess }: WithdrawModalProps) {
             </Button>
 
             <p className="text-gray/40 text-xs text-center">
-              Withdrawals are sent on Base network. ETH gas fee applies.
+              Withdrawals are sent on Base network. Gas fees are sponsored.
             </p>
           </div>
         )}
