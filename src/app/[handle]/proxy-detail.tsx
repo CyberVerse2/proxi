@@ -280,8 +280,9 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
       <div className="flex gap-8">
         {/* ============ Left Column ============ */}
         <div className="flex-1 min-w-0 space-y-6">
-          {/* Unclaimed banner */}
-          {!proxy.creatorId && !claimProxyResult?.success && (
+          {/* Unclaimed banner — only show if not logged in, or logged in as the matching X account */}
+          {!proxy.creatorId && !claimProxyResult?.success &&
+            (!authenticated || !authXHandle || authXHandle.toLowerCase() === proxy.xHandle.toLowerCase()) && (
             <Card className="bg-lime/5 border-lime/20 flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
                 <Crown size={20} className="text-lime" />
@@ -1220,6 +1221,143 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
           </Card>
         </div>
       </div>
+
+      {/* ─── Claim Proxy Modal ─── */}
+      {showClaimModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowClaimModal(false)} />
+          <div className="relative z-10 w-[440px] max-w-[90vw] bg-[#1a1a1a] border border-white/10 rounded-2xl p-7 shadow-2xl">
+            <button
+              onClick={() => setShowClaimModal(false)}
+              className="absolute top-3 right-3 p-1.5 rounded-lg text-white/30 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+
+            {claimProxyResult?.success ? (
+              /* ─── Success ─── */
+              <div className="flex flex-col items-center text-center py-4 space-y-4">
+                <div className="w-16 h-16 rounded-full bg-emerald-400/10 flex items-center justify-center">
+                  <CheckCircle size={32} className="text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-white font-bold text-xl">Proxy Claimed!</p>
+                  <p className="text-gray text-sm mt-1.5 leading-relaxed">
+                    {claimProxyResult.message}
+                  </p>
+                </div>
+                <Button
+                  className="w-full rounded-xl h-11 text-sm font-bold cursor-pointer"
+                  onClick={() => window.location.reload()}
+                >
+                  Continue
+                </Button>
+              </div>
+            ) : (
+              /* ─── Claim Form ─── */
+              <div className="space-y-5">
+                <div className="flex items-center gap-4">
+                  <img
+                    src={avatar}
+                    alt={name}
+                    width={56}
+                    height={56}
+                    className="rounded-xl object-cover shrink-0"
+                  />
+                  <div>
+                    <h2 className="text-white font-bold text-xl">Claim @{handle}</h2>
+                    <p className="text-gray text-sm mt-0.5">
+                      Verify you own this X account
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-white/4 rounded-xl p-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <ShieldCheck size={20} className="text-lime shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-white text-sm font-medium">How claiming works</p>
+                      <p className="text-gray text-xs leading-relaxed mt-1">
+                        Log in with the X (Twitter) account <span className="text-white font-medium">@{handle}</span>.
+                        We&apos;ll verify your handle matches this proxy and link it to your account.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Coins size={20} className="text-lime shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-white text-sm font-medium">Earn royalties</p>
+                      <p className="text-gray text-xs leading-relaxed mt-1">
+                        Once claimed, you&apos;ll earn WETH fees from LP trading activity on your token.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status: show which X account is logged in */}
+                {authenticated && authXHandle && (
+                  <div className={cn(
+                    'rounded-xl px-4 py-3 text-sm',
+                    authXHandle.toLowerCase() === proxy.xHandle.toLowerCase()
+                      ? 'bg-emerald-400/10 border border-emerald-400/20 text-emerald-400'
+                      : 'bg-amber-400/10 border border-amber-400/20 text-amber-400'
+                  )}>
+                    {authXHandle.toLowerCase() === proxy.xHandle.toLowerCase() ? (
+                      <div className="flex items-center gap-2">
+                        <CheckCircle size={16} />
+                        <span>Logged in as <span className="font-semibold">@{authXHandle}</span> — ready to claim!</span>
+                      </div>
+                    ) : (
+                      <p>
+                        You&apos;re logged in as <span className="font-semibold">@{authXHandle}</span>, but this proxy belongs to <span className="font-semibold">@{handle}</span>. Log in with the correct X account to claim.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Error */}
+                {claimProxyResult && !claimProxyResult.success && (
+                  <p className="text-red-400 text-sm bg-red-400/10 rounded-xl px-4 py-3">
+                    {claimProxyResult.message}
+                  </p>
+                )}
+
+                {/* Action button */}
+                {!authenticated ? (
+                  <Button
+                    className="w-full rounded-xl h-11 text-sm font-bold cursor-pointer"
+                    onClick={login}
+                  >
+                    Log in with X to Claim
+                  </Button>
+                ) : authXHandle?.toLowerCase() === proxy.xHandle.toLowerCase() ? (
+                  <Button
+                    className="w-full rounded-xl h-11 text-sm font-bold cursor-pointer"
+                    onClick={handleClaimProxy}
+                    disabled={claimProxyLoading}
+                  >
+                    {claimProxyLoading ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 size={16} className="animate-spin" /> Claiming...
+                      </span>
+                    ) : (
+                      'Claim This Proxy'
+                    )}
+                  </Button>
+                ) : (
+                  <Button
+                    className="w-full rounded-xl h-11 text-sm font-bold cursor-pointer"
+                    variant="outline"
+                    onClick={login}
+                  >
+                    Switch X Account
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
