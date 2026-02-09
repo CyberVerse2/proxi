@@ -6,6 +6,8 @@
 
 import { tasks } from "@trigger.dev/sdk";
 import type { ingestProxy } from "@/trigger/ingest-proxy";
+import { generateText } from "ai";
+import { anthropic } from "@ai-sdk/anthropic";
 import { sendTweet, getUserByUsername, type XTweet } from "./client";
 import { createProxy, getProxyByHandle, upsertUser } from "@/lib/db/queries";
 import { createUserWithWallet } from "@/lib/auth/privy";
@@ -51,6 +53,41 @@ export function parseCreateIntent(tweet: XTweet): MentionEvent | null {
 }
 
 /**
+ * Use AI to determine if a Twitter account is a company/brand/organization
+ * rather than an individual person. Returns true if the account appears
+ * to be a company.
+ */
+async function detectCompanyAccount(
+  name: string,
+  bio: string,
+): Promise<boolean> {
+  try {
+    const { text } = await generateText({
+      model: anthropic("claude-haiku-3"),
+      maxOutputTokens: 10,
+      prompt: `You are classifying a Twitter/X account as either an INDIVIDUAL person or a COMPANY/BRAND/ORGANIZATION.
+
+Account name: ${name}
+Account bio: ${bio}
+
+Rules:
+- If the account clearly belongs to a company, brand, organization, government agency, media outlet, or any non-individual entity, respond "COMPANY".
+- If the account belongs to an individual person (even if they mention their employer, projects, or roles at companies), respond "INDIVIDUAL".
+- Creators, founders, freelancers, and personal accounts are INDIVIDUAL even if they promote their own brand.
+- When in doubt, respond "INDIVIDUAL".
+
+Respond with exactly one word: COMPANY or INDIVIDUAL.`,
+    });
+
+    return text.trim().toUpperCase() === "COMPANY";
+  } catch (err) {
+    // If AI call fails, default to allowing the account through
+    console.error("[bot] Company detection failed, allowing account:", err);
+    return false;
+  }
+}
+
+/**
  * Handle a confirmed create intent:
  * 1. Look up the X user
  * 2. Create Privy user with embedded wallet (server-side)
@@ -82,6 +119,21 @@ export async function handleCreateMention(
       tweetId,
     );
     return;
+  }
+
+  // Step 1b: Reject company/brand accounts using AI analysis
+  if (xUser.description) {
+    const isCompany = await detectCompanyAccount(
+      xUser.name,
+      xUser.description,
+    );
+    if (isCompany) {
+      await sendTweet(
+        `@${authorHandle} Proxi is designed for individual creators, not company or brand accounts. If you're a person behind this account, update your bio and try again!`,
+        tweetId,
+      );
+      return;
+    }
   }
 
   const followers = xUser.public_metrics?.followers_count ?? 0;

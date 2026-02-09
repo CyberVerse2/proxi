@@ -16,10 +16,25 @@ interface Props {
   params: Promise<{ handle: string }>;
 }
 
+async function fetchEthPriceUsd(): Promise<number> {
+  try {
+    const res = await fetch(
+      "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd",
+      { next: { revalidate: 300 } },
+    );
+    if (!res.ok) return 0;
+    const data = await res.json();
+    return data?.ethereum?.usd ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
 export interface FeeData {
   claimed: string;
   unclaimed: string;
   total: string;
+  totalUsd: number;
 }
 
 export default async function ProxyDetailPage({ params }: Props) {
@@ -58,14 +73,20 @@ export default async function ProxyDetailPage({ params }: Props) {
 
       if (!walletAddress) return null;
 
-      const fees = await getTotalWethFees(
-        proxy.tokenAddress!,
-        walletAddress as `0x${string}`,
-      );
+      const [fees, ethPrice] = await Promise.all([
+        getTotalWethFees(
+          proxy.tokenAddress!,
+          walletAddress as `0x${string}`,
+        ),
+        fetchEthPriceUsd(),
+      ]);
+
+      const totalEth = parseFloat(formatEther(fees.total));
       return {
         claimed: formatEther(fees.claimed),
         unclaimed: formatEther(fees.unclaimed),
         total: formatEther(fees.total),
+        totalUsd: totalEth * ethPrice,
       };
     })().catch(() => null);
 

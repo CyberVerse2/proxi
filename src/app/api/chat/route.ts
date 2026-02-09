@@ -7,8 +7,12 @@ import {
   createConversation,
   addMessage,
   updateConversationTitle,
+  getUserProxyMessageCount,
 } from "@/lib/db/queries";
 import { getChatContext } from "@/lib/ai/chat";
+import { getOnChainTokenBalance } from "@/lib/chain/token";
+
+const FREE_MESSAGES_PER_PROXY = 5;
 
 /** Generate a short (3-6 word) conversation title from the first exchange */
 async function generateChatTitle(
@@ -55,6 +59,45 @@ export async function POST(request: Request) {
       user = await upsertUser({ privyId });
     }
     dbUserId = user.id;
+  }
+
+  // Gate: check free message limit, then token balance
+  if (dbUserId && proxy.tokenAddress) {
+    const msgCount = await getUserProxyMessageCount(dbUserId, proxy.id);
+    if (msgCount >= FREE_MESSAGES_PER_PROXY) {
+      const user = await getUserByPrivyId(privyId);
+      if (!user?.walletAddress) {
+        return new Response(
+          JSON.stringify({
+            error: "wallet_required",
+            message: "Connect a wallet to continue chatting",
+            freeUsed: msgCount,
+            freeLimit: FREE_MESSAGES_PER_PROXY,
+          }),
+          { status: 402, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      try {
+        const balance = await getOnChainTokenBalance(
+          proxy.tokenAddress as `0x${string}`,
+          user.walletAddress as `0x${string}`,
+        );
+        if (balance === 0n) {
+          return new Response(
+            JSON.stringify({
+              error: "insufficient_tokens",
+              message: "You need to hold proxy tokens to continue chatting",
+              freeUsed: msgCount,
+              freeLimit: FREE_MESSAGES_PER_PROXY,
+            }),
+            { status: 402, headers: { "Content-Type": "application/json" } },
+          );
+        }
+      } catch (err) {
+        // If balance check fails, allow the message through (fail-open)
+        console.error("[chat] Token balance check failed, allowing message:", err);
+      }
+    }
   }
 
   // Create or reuse conversation

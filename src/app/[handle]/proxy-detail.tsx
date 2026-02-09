@@ -65,6 +65,7 @@ interface FeeData {
   claimed: string;
   unclaimed: string;
   total: string;
+  totalUsd: number;
 }
 
 export function ProxyDetail({
@@ -416,90 +417,91 @@ export function ProxyDetail({
                           <Gem size={14} className="fill-purple" /> Fee earnings
                         </Badge>
                         <p className="text-white text-xl font-bold">
-                          {feeData
-                            ? `${parseFloat(feeData.total).toFixed(6)} WETH`
-                            : '0.000000 WETH'}
+                          {feeData && feeData.totalUsd > 0
+                            ? formatFeeUsd(feeData.totalUsd)
+                            : '$0.00'}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Claimed / Unclaimed breakdown */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-white/4 rounded-xl px-4 py-3">
-                      <p className="text-gray text-xs font-medium mb-0.5">Claimed</p>
-                      <p className="text-white/70 text-base font-semibold">
-                        {feeData ? `${parseFloat(feeData.claimed).toFixed(6)}` : '0.000000'}
-                        <span className="text-gray text-xs ml-1">WETH</span>
-                      </p>
-                    </div>
-                    <div className="bg-emerald-400/5 border border-emerald-400/10 rounded-xl px-4 py-3">
-                      <p className="text-gray text-xs font-medium mb-0.5">Unclaimed</p>
-                      <p className="text-emerald-400 text-base font-semibold">
-                        {feeData ? `${parseFloat(feeData.unclaimed).toFixed(6)}` : '0.000000'}
-                        <span className="text-emerald-400/60 text-xs ml-1">WETH</span>
-                      </p>
-                    </div>
-                  </div>
+                  {/* Detailed breakdown + claim — only for the proxy owner */}
+                  {authenticated && authXHandle?.toLowerCase() === proxy.xHandle.toLowerCase() && (
+                    <>
+                      {/* Claimed / Unclaimed breakdown */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-white/4 rounded-xl px-4 py-3">
+                          <p className="text-gray text-xs font-medium mb-0.5">Claimed</p>
+                          <p className="text-white/70 text-base font-semibold">
+                            {feeData ? `${parseFloat(feeData.claimed).toFixed(6)}` : '0.000000'}
+                            <span className="text-gray text-xs ml-1">WETH</span>
+                          </p>
+                        </div>
+                        <div className="bg-emerald-400/5 border border-emerald-400/10 rounded-xl px-4 py-3">
+                          <p className="text-gray text-xs font-medium mb-0.5">Unclaimed</p>
+                          <p className="text-emerald-400 text-base font-semibold">
+                            {feeData ? `${parseFloat(feeData.unclaimed).toFixed(6)}` : '0.000000'}
+                            <span className="text-emerald-400/60 text-xs ml-1">WETH</span>
+                          </p>
+                        </div>
+                      </div>
 
-                  {/* Claim result feedback */}
-                  {claimResult && (
-                    <div
-                      className={cn(
-                        'rounded-xl px-4 py-3 text-sm',
-                        claimResult.success
-                          ? 'bg-emerald-400/10 border border-emerald-400/20 text-emerald-400'
-                          : 'bg-red-400/10 border border-red-400/20 text-red-400'
+                      {/* Claim result feedback */}
+                      {claimResult && (
+                        <div
+                          className={cn(
+                            'rounded-xl px-4 py-3 text-sm',
+                            claimResult.success
+                              ? 'bg-emerald-400/10 border border-emerald-400/20 text-emerald-400'
+                              : 'bg-red-400/10 border border-red-400/20 text-red-400'
+                          )}
+                        >
+                          {claimResult.success ? (
+                            claimResult.txHash ? (
+                              <div className="flex items-center gap-2">
+                                <CheckCircle size={16} className="shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium">
+                                    Claimed {parseFloat(claimResult.amount ?? '0').toFixed(6)} WETH
+                                  </p>
+                                  <a
+                                    href={`https://basescan.org/tx/${claimResult.txHash}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-emerald-400/80 text-xs hover:underline flex items-center gap-1 mt-0.5"
+                                  >
+                                    View on Basescan <ExternalLink size={11} />
+                                  </a>
+                                </div>
+                              </div>
+                            ) : (
+                              <p>{claimResult.message}</p>
+                            )
+                          ) : (
+                            <p>{claimResult.message}</p>
+                          )}
+                        </div>
                       )}
-                    >
-                      {claimResult.success ? (
-                        claimResult.txHash ? (
-                          <div className="flex items-center gap-2">
-                            <CheckCircle size={16} className="shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium">
-                                Claimed {parseFloat(claimResult.amount ?? '0').toFixed(6)} WETH
-                              </p>
-                              <a
-                                href={`https://basescan.org/tx/${claimResult.txHash}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-emerald-400/80 text-xs hover:underline flex items-center gap-1 mt-0.5"
-                              >
-                                View on Basescan <ExternalLink size={11} />
-                              </a>
-                            </div>
-                          </div>
-                        ) : (
-                          <p>{claimResult.message}</p>
-                        )
-                      ) : (
-                        <p>{claimResult.message}</p>
-                      )}
-                    </div>
-                  )}
 
-                  {/* Claim button */}
-                  {feeData && parseFloat(feeData.unclaimed) > 0 && (
-                    <Button
-                      className="w-full rounded-xl h-11 text-sm font-bold cursor-pointer gap-2"
-                      onClick={handleClaimFees}
-                      disabled={claimLoading}
-                    >
-                      {claimLoading ? (
-                        <span className="flex items-center gap-2">
-                          <Loader2 size={16} className="animate-spin" /> Claiming...
-                        </span>
-                      ) : !authenticated ? (
-                        <span className="flex items-center gap-2">
-                          <Coins size={16} /> Login to Claim Fees
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-2">
-                          <Coins size={16} /> Claim {parseFloat(feeData.unclaimed).toFixed(6)} WETH
-                        </span>
+                      {/* Claim button */}
+                      {feeData && parseFloat(feeData.unclaimed) > 0 && (
+                        <Button
+                          className="w-full rounded-xl h-11 text-sm font-bold cursor-pointer gap-2"
+                          onClick={handleClaimFees}
+                          disabled={claimLoading}
+                        >
+                          {claimLoading ? (
+                            <span className="flex items-center gap-2">
+                              <Loader2 size={16} className="animate-spin" /> Claiming...
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-2">
+                              <Coins size={16} /> Claim {parseFloat(feeData.unclaimed).toFixed(6)} WETH
+                            </span>
+                          )}
+                        </Button>
                       )}
-                    </Button>
+                    </>
                   )}
                 </Card>
               )}
@@ -984,17 +986,22 @@ export function ProxyDetail({
                   ) : null}
                   <div className="flex items-baseline gap-2.5">
                     <span className="text-white text-2xl font-bold leading-tight">
-                      ${price.toFixed(4)}
+                      {formatUsd(tokenData?.priceUsd ?? price)}
                     </span>
-                    <span
-                      className={cn(
-                        'text-xs font-medium',
-                        priceChange >= 0 ? 'text-emerald-400' : 'text-red-400'
-                      )}
-                    >
-                      {priceChange >= 0 ? '+' : ''}
-                      {priceChange.toFixed(2)}%
-                    </span>
+                    {(() => {
+                      const change = tokenData?.priceChange24h ?? priceChange;
+                      return (
+                        <span
+                          className={cn(
+                            'text-xs font-medium',
+                            change >= 0 ? 'text-emerald-400' : 'text-red-400'
+                          )}
+                        >
+                          {change >= 0 ? '+' : ''}
+                          {change.toFixed(2)}%
+                        </span>
+                      );
+                    })()}
                   </div>
                   <p className="text-gray text-[11px]">per token</p>
                 </div>
@@ -1348,4 +1355,12 @@ function formatCompact(value: number): string {
   if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
   if (value >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
   return `$${value.toFixed(2)}`;
+}
+
+function formatFeeUsd(value: number): string {
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
+  if (value >= 1_000) return `$${(value / 1_000).toFixed(2)}K`;
+  if (value >= 1) return `$${value.toFixed(2)}`;
+  if (value >= 0.01) return `$${value.toFixed(2)}`;
+  return `$${value.toFixed(4)}`;
 }

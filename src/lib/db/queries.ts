@@ -309,6 +309,27 @@ export async function getProxyMessageCount(proxyId: string): Promise<number> {
   return Number(row?.total ?? 0);
 }
 
+/* ---------- user message count for a specific proxy (user-role only) ---------- */
+export async function getUserProxyMessageCount(
+  userId: string,
+  proxyId: string,
+): Promise<number> {
+  const [row] = await db
+    .select({
+      total: sql<number>`count(*)`,
+    })
+    .from(messages)
+    .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+    .where(
+      and(
+        eq(conversations.userId, userId),
+        eq(conversations.proxyId, proxyId),
+        eq(messages.role, "user"),
+      ),
+    );
+  return Number(row?.total ?? 0);
+}
+
 /* ---------- recent conversations (across all proxies for a user) ---------- */
 export async function getUserRecentConversations(userId: string, limit = 10) {
   return db

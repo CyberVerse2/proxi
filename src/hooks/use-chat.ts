@@ -9,6 +9,8 @@ export interface ChatMessage {
   createdAt: Date;
 }
 
+export type PaymentError = "insufficient_tokens" | "wallet_required" | null;
+
 interface UseChatOptions {
   proxyHandle: string;
   privyId?: string | null;
@@ -18,6 +20,7 @@ export function useChat({ proxyHandle, privyId }: UseChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [paymentRequired, setPaymentRequired] = useState<PaymentError>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   // Track the latest conversationId in a ref so the streaming callback always sees it
@@ -26,6 +29,7 @@ export function useChat({ proxyHandle, privyId }: UseChatOptions) {
   const sendMessage = useCallback(
     async (content: string) => {
       setError(null);
+      setPaymentRequired(null);
       const userMsg: ChatMessage = {
         id: crypto.randomUUID(),
         role: "user",
@@ -81,6 +85,18 @@ export function useChat({ proxyHandle, privyId }: UseChatOptions) {
           signal: abortRef.current.signal,
         });
 
+        if (res.status === 402) {
+          const data = await res.json();
+          const errType = data.error === "insufficient_tokens"
+            ? "insufficient_tokens"
+            : "wallet_required";
+          setPaymentRequired(errType as PaymentError);
+          // Remove the optimistic user + empty assistant messages
+          setMessages((prev) => prev.filter(
+            (m) => m.id !== userMsg.id && m.id !== assistantId
+          ));
+          return;
+        }
         if (!res.ok) throw new Error("Failed to send message");
         if (!res.body) throw new Error("No response body");
 
@@ -167,6 +183,7 @@ export function useChat({ proxyHandle, privyId }: UseChatOptions) {
     messages,
     isLoading,
     error,
+    paymentRequired,
     conversationId,
     sendMessage,
     stop,

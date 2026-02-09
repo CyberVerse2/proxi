@@ -597,3 +597,37 @@ export async function getTokenMarketCap(tokenAddress: string): Promise<number> {
   const data = await getTokenMarketData(tokenAddress);
   return data.marketCap;
 }
+
+/* ────────────────────────────────────────────────────────── */
+/*  ERC-20 token balance (server-side, read-only)             */
+/* ────────────────────────────────────────────────────────── */
+
+const ERC20_BALANCE_ABI = [
+  {
+    inputs: [{ name: "account", type: "address" }],
+    name: "balanceOf",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
+
+/**
+ * Read an ERC-20 token balance via RPC. No wallet needed — pure read call.
+ */
+export async function getOnChainTokenBalance(
+  tokenAddress: `0x${string}`,
+  walletAddress: `0x${string}`,
+): Promise<bigint> {
+  const client = createPublicClient({
+    chain: base,
+    transport: http(RPC_URL),
+  });
+
+  return client.readContract({
+    address: tokenAddress,
+    abi: ERC20_BALANCE_ABI,
+    functionName: "balanceOf",
+    args: [walletAddress],
+  });
+}

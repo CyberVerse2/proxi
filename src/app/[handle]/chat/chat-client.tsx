@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { ArrowUp, Square, ChevronDown } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowUp, Square, ChevronDown, Coins } from 'lucide-react';
 import { useChat } from '@/hooks/use-chat';
 import { useAuth } from '@/hooks/use-auth';
 import Image from 'next/image';
@@ -32,6 +33,7 @@ export function ChatClient({
     isLoading,
     sendMessage,
     stop,
+    paymentRequired,
     conversationId: hookConvoId,
     loadConversation,
     resetChat,
@@ -288,15 +290,36 @@ export function ChatClient({
           </div>
 
           {/* ─── Input bar (fixed at bottom) ─── */}
-          <div className="shrink-0 px-4 pb-4 pt-2">
+          <div className="shrink-0 px-4 pb-4 pt-2 space-y-2">
+            {/* Buy tokens prompt */}
+            {paymentRequired && (
+              <div className="rounded-2xl bg-white/8 backdrop-blur-md border border-yellow-400/20 px-4 py-3 space-y-2">
+                <div className="flex items-center gap-2 text-yellow-400 text-sm font-medium">
+                  <Coins size={16} />
+                  <span>
+                    {paymentRequired === "insufficient_tokens"
+                      ? "You've used your 5 free messages. Hold tokens to keep chatting."
+                      : "Connect a wallet to continue chatting."}
+                  </span>
+                </div>
+                <Link
+                  href={`/${handle}#trade`}
+                  className="block w-full text-center rounded-xl bg-lime text-black text-sm font-bold py-2.5 hover:bg-lime/90 transition-colors"
+                >
+                  Buy ${handle.toUpperCase()} Tokens
+                </Link>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit}>
               <div className="flex items-center gap-2 bg-white/8 backdrop-blur-md border border-white/10 rounded-2xl px-4 py-3 focus-within:border-lime/30 transition-colors">
                 <input
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder={`Message ${name}...`}
-                  className="flex-1 bg-transparent text-white text-base placeholder:text-white/30 outline-none"
+                  placeholder={paymentRequired ? 'Buy tokens to continue...' : `Message ${name}...`}
+                  disabled={!!paymentRequired}
+                  className="flex-1 bg-transparent text-white text-base placeholder:text-white/30 outline-none disabled:opacity-40"
                 />
                 {isLoading ? (
                   <button
@@ -309,7 +332,7 @@ export function ChatClient({
                 ) : (
                   <button
                     type="submit"
-                    disabled={!input.trim()}
+                    disabled={!input.trim() || !!paymentRequired}
                     className="p-2.5 rounded-full bg-lime text-black disabled:opacity-30 cursor-pointer"
                   >
                     <ArrowUp size={16} />
@@ -317,7 +340,7 @@ export function ChatClient({
                 )}
               </div>
             </form>
-            <p className="text-white/20 text-xs text-center mt-2">
+            <p className="text-white/20 text-xs text-center">
               This is an AI clone. Responses are generated, not from the real person.
             </p>
           </div>
