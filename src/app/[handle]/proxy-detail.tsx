@@ -1243,7 +1243,9 @@ export function ProxyDetail({
                   <div className="h-4 w-14 bg-white/6 rounded animate-pulse" />
                 ) : (
                   <span className="text-white text-base font-medium">
-                    ${(parseFloat(tokenBalance) * price).toFixed(2)}
+                    ${rawTokensPerMessage > 0
+                      ? (Math.floor(parseFloat(tokenBalance) / rawTokensPerMessage) * msgPrice).toFixed(2)
+                      : (parseFloat(tokenBalance) * price).toFixed(2)}
                   </span>
                 )}
               </div>

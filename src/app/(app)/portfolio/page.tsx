@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { DEFAULT_AVATAR } from "@/lib/config/constants";
+import { Sparkline, generateSparklineData } from "@/components/ui/sparkline";
 import {
   Wallet,
   Ghost,
@@ -135,7 +136,10 @@ export default function PortfolioPage() {
     fetch(`/api/portfolio?wallet=${encodeURIComponent(walletAddress!)}`)
       .then((r) => r.json())
       .then((data) => {
-        if (!cancelled && Array.isArray(data)) setHoldings(data);
+        if (cancelled) return;
+        const h = Array.isArray(data.holdings) ? data.holdings : Array.isArray(data) ? data : [];
+        setHoldings(h);
+        if (data.usdcBalance != null) setUsdcBalance(String(data.usdcBalance));
       })
       .catch(() => {})
       .finally(() => {
@@ -172,8 +176,27 @@ export default function PortfolioPage() {
     };
   }, [user?.id]);
 
-  const totalValue = holdings.reduce((s, h) => s + h.value, 0);
+  const tokensValue = holdings.reduce((s, h) => s + h.value, 0);
+  const totalValue = tokensValue + parseFloat(usdcBalance || "0");
   const formattedTotal = `$${totalValue.toFixed(2)}`;
+
+  // Build sparkline from cumulative holding values
+  const sparklineData = useMemo(() => {
+    if (holdings.length === 0) return generateSparklineData(totalValue);
+    // Build cumulative curve from holdings sorted by value
+    const sorted = [...holdings].sort((a, b) => a.value - b.value);
+    const cumulative: number[] = [0];
+    let running = 0;
+    for (const h of sorted) {
+      running += h.value;
+      cumulative.push(running);
+    }
+    // Pad to at least 12 points for a smooth line
+    while (cumulative.length < 12) {
+      cumulative.unshift(cumulative[0] * 0.9);
+    }
+    return cumulative;
+  }, [holdings, totalValue]);
 
   // Stable reference for relative time formatting
   const [now] = useState(() => Date.now());
@@ -248,13 +271,8 @@ export default function PortfolioPage() {
               </div>
             </div>
 
-            {/* Chart placeholder — historical price data not yet available */}
-            <div className="relative h-[60px] w-full flex items-end">
-              <div
-                className="w-full rounded-lg bg-lime/10"
-                style={{ height: totalValue > 0 ? "100%" : "4px" }}
-              />
-            </div>
+            {/* Portfolio sparkline chart */}
+            <Sparkline data={sparklineData} height={100} />
           </div>
 
           {/* Right sidebar */}

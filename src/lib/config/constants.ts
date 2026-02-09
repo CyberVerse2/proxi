@@ -1,7 +1,7 @@
 // ── Pricing ──────────────────────────────────────────────────────────
 export const FREE_MESSAGES_PER_PROXY = 5;
 export const MESSAGE_PRICE_USD = 0.1;
-export const MIN_BUY_MESSAGES = 5;
+export const MIN_BUY_MESSAGES = 10;
 export const SWAP_FEE_BPS = "100";
 export const SLIPPAGE_BPS = "100";
 export const CREATOR_FEE_PERCENT = 50;

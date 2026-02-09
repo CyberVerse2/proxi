@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { proxyTokens, proxies } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { proxies } from "@/lib/db/schema";
+import { isNotNull } from "drizzle-orm";
 import { getTokenPrice } from "@/lib/chain/token";
 import { baseClient } from "@/lib/chain/config";
-import { parseAbi } from "viem";
-import { DEFAULT_AVATAR } from "@/lib/config/constants";
+import { parseAbi, formatUnits } from "viem";
+import {
+  DEFAULT_AVATAR,
+  USDC_ADDRESS,
+  USDC_DECIMALS,
+  MESSAGE_PRICE_USD,
+} from "@/lib/config/constants";
 
 const ERC20_ABI = parseAbi([
   "function balanceOf(address owner) view returns (uint256)",
@@ -14,47 +19,53 @@ const ERC20_ABI = parseAbi([
 
 /**
  * GET /api/portfolio?wallet=0x...
- * Returns the user's proxy token holdings with current prices.
+ * Returns the user's proxy token holdings + USDC balance.
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const wallet = searchParams.get("wallet");
-  if (!wallet) return NextResponse.json({ error: "Missing wallet" }, { status: 400 });
+  if (!wallet)
+    return NextResponse.json({ error: "Missing wallet" }, { status: 400 });
 
   try {
-    // Get all deployed proxy tokens
-    const tokens = await db
-      .select({ token: proxyTokens, proxy: proxies })
-      .from(proxyTokens)
-      .innerJoin(proxies, eq(proxyTokens.proxyId, proxies.id));
+    // Get all proxies that have a deployed token
+    const allProxies = await db
+      .select()
+      .from(proxies)
+      .where(isNotNull(proxies.tokenAddress));
 
     const holdings = [];
 
-    for (const { token, proxy } of tokens) {
+    for (const proxy of allProxies) {
+      if (!proxy.tokenAddress) continue;
       try {
-        // Read on-chain balance
         const balance = await baseClient.readContract({
-          address: token.tokenAddress as `0x${string}`,
+          address: proxy.tokenAddress as `0x${string}`,
           abi: ERC20_ABI,
           functionName: "balanceOf",
           args: [wallet as `0x${string}`],
         });
 
-        if (balance === BigInt(0)) continue;
+        if (balance === 0n) continue;
 
-        // Get decimals
-        let decimals = 18;
+        const amount = Number(balance) / 1e18;
+
+        // Try market price first, fall back to chat-price-based valuation
+        let price = 0;
+        let value = 0;
         try {
-          decimals = await baseClient.readContract({
-            address: token.tokenAddress as `0x${string}`,
-            abi: ERC20_ABI,
-            functionName: "decimals",
-          });
-        } catch { /* default to 18 */ }
+          price = await getTokenPrice(proxy.tokenAddress);
+          value = amount * price;
+        } catch {
+          /* no market price */
+        }
 
-        const amount = Number(balance) / 10 ** decimals;
-        const price = await getTokenPrice(token.tokenAddress);
-        const value = amount * price;
+        // If market price is 0, estimate value from chat price
+        if (value === 0) {
+          const chatPrice = proxy.chatPrice ?? MESSAGE_PRICE_USD;
+          // Rough estimate: token value = chatPrice (each token ≈ fraction of a message)
+          value = amount * chatPrice * 0.01; // conservative estimate
+        }
 
         holdings.push({
           id: proxy.id,
@@ -65,17 +76,33 @@ export async function GET(request: Request) {
           value: Math.round(value * 100) / 100,
           change24h: proxy.priceChange24h ?? 0,
           price,
-          tokenAddress: token.tokenAddress,
+          tokenAddress: proxy.tokenAddress,
         });
       } catch {
-        // Skip tokens that fail to read (bad address, etc.)
         continue;
       }
     }
 
-    return NextResponse.json(holdings);
+    // Fetch USDC balance
+    let usdcBalance = 0;
+    try {
+      const rawBalance = await baseClient.readContract({
+        address: USDC_ADDRESS as `0x${string}`,
+        abi: ERC20_ABI,
+        functionName: "balanceOf",
+        args: [wallet as `0x${string}`],
+      });
+      usdcBalance =
+        Math.round(
+          parseFloat(formatUnits(rawBalance, USDC_DECIMALS)) * 100,
+        ) / 100;
+    } catch {
+      /* no USDC */
+    }
+
+    return NextResponse.json({ holdings, usdcBalance });
   } catch (error) {
     console.error("[portfolio] Failed to fetch holdings:", error);
-    return NextResponse.json([], { status: 200 });
+    return NextResponse.json({ holdings: [], usdcBalance: 0 }, { status: 200 });
   }
 }
