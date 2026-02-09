@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import {
   BadgeCheck,
@@ -86,7 +87,7 @@ export function ProxyDetail({
   const [activeTab, setActiveTab] = useState<string>('About Me');
   const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy');
   const [denomination, setDenomination] = useState<'messages' | 'usd'>('messages');
-  const [amount, setAmount] = useState('5');
+  const [amount, setAmount] = useState(String(MIN_BUY_MESSAGES));
   const [copied, setCopied] = useState(false);
 
   // Auth + Swap
@@ -108,58 +109,60 @@ export function ProxyDetail({
     error: swapError
   } = useSwap(proxy.chatPrice ?? undefined);
 
-  // Balances & pricing
-  const [usdcBalance, setUsdcBalance] = useState('0');
-  const [tokenBalance, setTokenBalance] = useState('0');
-  const [tokensPerMessage, setTokensPerMessage] = useState<string | null>(null);
-  const [rawTokensPerMessage, setRawTokensPerMessage] = useState<number>(0);
-  const [balancesLoading, setBalancesLoading] = useState(true);
-  const [pricingLoading, setPricingLoading] = useState(!!proxy.tokenAddress);
+  const queryClient = useQueryClient();
+
+  // Balances via TanStack Query
+  const {
+    data: balances,
+    isLoading: balancesLoading,
+  } = useQuery({
+    queryKey: ['balances', walletAddress, proxy.tokenAddress],
+    queryFn: async () => {
+      const [usdc, tok] = await Promise.all([
+        getUsdcBalance(),
+        proxy.tokenAddress ? getTokenBalance(proxy.tokenAddress) : Promise.resolve('0'),
+      ]);
+      return { usdcBalance: usdc, tokenBalance: tok };
+    },
+    enabled: !!walletAddress,
+    refetchInterval: 30_000, // keep balances reasonably fresh
+    placeholderData: { usdcBalance: '0', tokenBalance: '0' },
+  });
+
+  const usdcBalance = balances?.usdcBalance ?? '0';
+  const tokenBalance = balances?.tokenBalance ?? '0';
+
+  // Tokens-per-message pricing via TanStack Query
+  const {
+    data: pricingData,
+    isLoading: pricingLoading,
+  } = useQuery({
+    queryKey: ['tokensPerMessage', proxy.tokenAddress],
+    queryFn: async () => {
+      const result = await getPrice(proxy.tokenAddress!, '1', 'buy');
+      if (result) {
+        const tokens = Number(result.buyAmount) / 1e18;
+        return {
+          raw: tokens,
+          formatted: tokens > 0 ? formatTokenAmount(tokens) : null,
+        };
+      }
+      return { raw: 0, formatted: null };
+    },
+    enabled: !!proxy.tokenAddress,
+    staleTime: 60_000, // pricing is stable for ~1 min
+    placeholderData: { raw: 0, formatted: null },
+  });
+
+  const rawTokensPerMessage = pricingData?.raw ?? 0;
+  const tokensPerMessage = pricingData?.formatted ?? null;
+
   const [swapSuccess, setSwapSuccess] = useState<{
     txHash: string;
     mode: 'buy' | 'sell';
     messages: number;
     usdcAmount: number;
   } | null>(null);
-
-  // Fetch balances
-  const refreshBalances = useCallback(async () => {
-    if (!walletAddress) {
-      setBalancesLoading(false);
-      return;
-    }
-    setBalancesLoading(true);
-    try {
-      const [usdc, tok] = await Promise.all([
-        getUsdcBalance(),
-        proxy.tokenAddress ? getTokenBalance(proxy.tokenAddress) : Promise.resolve('0')
-      ]);
-      setUsdcBalance(usdc);
-      setTokenBalance(tok);
-    } finally {
-      setBalancesLoading(false);
-    }
-  }, [walletAddress, getUsdcBalance, getTokenBalance, proxy.tokenAddress]);
-
-  useEffect(() => {
-    refreshBalances();
-  }, [refreshBalances]);
-
-  // Fetch how many tokens = 1 message (proxy's chat price in USDC)
-  useEffect(() => {
-    if (!proxy.tokenAddress) return;
-    setPricingLoading(true);
-    // Ask 0x: if I sell the chat-price worth of USDC, how many tokens do I get?
-    getPrice(proxy.tokenAddress, '1', 'buy')
-      .then((result) => {
-        if (result) {
-          const tokens = Number(result.buyAmount) / 1e18;
-          setRawTokensPerMessage(tokens);
-          setTokensPerMessage(tokens > 0 ? formatTokenAmount(tokens) : null);
-        }
-      })
-      .finally(() => setPricingLoading(false));
-  }, [proxy.tokenAddress, getPrice]);
 
   // Per-proxy chat price (creator-configured, falls back to global default)
   const msgPrice = proxy.chatPrice ?? MESSAGE_PRICE_USD;
@@ -185,8 +188,11 @@ export function ProxyDetail({
         messages: savedMsgCount,
         usdcAmount: savedUsdcCost
       });
-      setAmount(denomination === 'messages' ? '5' : '0.50');
-      refreshBalances();
+      setAmount(denomination === 'messages' ? String(MIN_BUY_MESSAGES) : (MIN_BUY_MESSAGES * msgPrice).toFixed(2));
+      // Wait for on-chain state to propagate, then invalidate balance & pricing queries
+      await new Promise((r) => setTimeout(r, 2000));
+      await queryClient.invalidateQueries({ queryKey: ['balances', walletAddress, proxy.tokenAddress] });
+      await queryClient.invalidateQueries({ queryKey: ['tokensPerMessage', proxy.tokenAddress] });
     }
   };
   // Claim fees state
@@ -959,7 +965,7 @@ export function ProxyDetail({
                   <button
                     onClick={() => {
                       setTradeMode('buy');
-                      setAmount(denomination === 'messages' ? '5' : '0.50');
+                      setAmount(denomination === 'messages' ? String(MIN_BUY_MESSAGES) : (MIN_BUY_MESSAGES * msgPrice).toFixed(2));
                     }}
                     className={cn(
                       'flex-1 py-2 text-sm font-semibold rounded-[10px] transition-colors cursor-pointer',
@@ -971,7 +977,7 @@ export function ProxyDetail({
                   <button
                     onClick={() => {
                       setTradeMode('sell');
-                      setAmount(denomination === 'messages' ? '5' : '0.50');
+                      setAmount(denomination === 'messages' ? String(MIN_BUY_MESSAGES) : (MIN_BUY_MESSAGES * msgPrice).toFixed(2));
                     }}
                     className={cn(
                       'flex-1 py-2 text-sm font-semibold rounded-[10px] transition-colors cursor-pointer',
@@ -1037,7 +1043,7 @@ export function ProxyDetail({
                         } else {
                           // Convert current USD to messages
                           const msgs = Math.round(rawAmount / msgPrice);
-                          setAmount(msgs > 0 ? String(msgs) : '5');
+                          setAmount(msgs > 0 ? String(msgs) : String(MIN_BUY_MESSAGES));
                           setDenomination('messages');
                         }
                       }}

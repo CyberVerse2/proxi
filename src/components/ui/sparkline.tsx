@@ -1,5 +1,7 @@
 "use client";
 
+import { useId } from "react";
+
 /**
  * Lightweight SVG sparkline chart.
  * Accepts an array of numeric data points and renders a smooth area chart.
@@ -59,7 +61,7 @@ export function Sparkline({
   // Closed area path for the gradient fill
   const areaPath = `${linePath} L ${points[points.length - 1].x},${height} L ${points[0].x},${height} Z`;
 
-  const gradientId = `sparkline-grad-${Math.random().toString(36).slice(2, 8)}`;
+  const gradientId = `sparkline-grad-${useId().replace(/:/g, "")}`;
 
   return (
     <svg
