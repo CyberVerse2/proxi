@@ -179,8 +179,12 @@ export function ProxyDetail({
     const savedMode = tradeMode;
     const savedMsgCount = Math.round(msgCount);
     const savedUsdcCost = usdcCost;
-    // Always pass message count to the hook — it handles USDC conversion internally
-    const txHash = await executeSwap(proxy.tokenAddress, String(savedMsgCount), tradeMode);
+    // Buy: pass message count (hook converts to USDC internally)
+    // Sell: convert messages → token amount (messages × tokensPerMessage)
+    const swapAmount = tradeMode === 'sell'
+      ? String(savedMsgCount * rawTokensPerMessage)
+      : String(savedMsgCount);
+    const txHash = await executeSwap(proxy.tokenAddress, swapAmount, tradeMode);
     if (txHash) {
       setSwapSuccess({
         txHash,
