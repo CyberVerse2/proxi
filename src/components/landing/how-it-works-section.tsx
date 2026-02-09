@@ -125,7 +125,7 @@ function TokenizeVisual() {
       <Coins size={160} className="text-lime/20" strokeWidth={1.2} />
       {/* Revenue card */}
       <div className="absolute top-6 left-6 bg-lime/20 rounded-xl p-3 shadow-lg">
-        <p className="text-lime/70 text-[10px] uppercase tracking-wider font-bold mb-1">Creator Revenue</p>
+        <p className="text-lime/70 text-[10px] uppercase tracking-wider font-bold mb-1">Proxy Revenue</p>
         <p className="text-lime text-xl font-bold font-heading">50%</p>
       </div>
       {/* Bar chart */}

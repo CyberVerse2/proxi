@@ -26,6 +26,8 @@ export default function MyProxyPage() {
   const [proxy, setProxy] = useState<Proxy | null>(null);
   const [loading, setLoading] = useState(true);
   const [tokenizing, setTokenizing] = useState(false);
+  const [tokenError, setTokenError] = useState<string | null>(null);
+  const [tokenSuccess, setTokenSuccess] = useState(false);
 
   useEffect(() => {
     if (!ready) return;
@@ -102,13 +104,19 @@ export default function MyProxyPage() {
               onClick={async () => {
                 if (!user?.id || !walletAddress) return;
                 setTokenizing(true);
+                setTokenError(null);
+                setTokenSuccess(false);
                 try {
                   const res = await fetch('/api/proxy/tokenize', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ privyId: user.id, walletAddress })
                   });
-                  if (res.ok) {
+                  const data = await res.json();
+                  if (!res.ok) {
+                    setTokenError(data.error ?? 'Token deployment failed');
+                  } else {
+                    setTokenSuccess(true);
                     // Refresh proxy data
                     const meRes = await fetch(
                       `/api/user/me?privyId=${encodeURIComponent(user.id)}`
@@ -116,8 +124,10 @@ export default function MyProxyPage() {
                     const meData = await meRes.json();
                     if (meData.proxy) setProxy(meData.proxy);
                   }
-                } catch {
-                  /* ignore */
+                } catch (err) {
+                  setTokenError(
+                    err instanceof Error ? err.message : 'Unexpected error during deployment'
+                  );
                 }
                 setTokenizing(false);
               }}
@@ -136,6 +146,32 @@ export default function MyProxyPage() {
           </Link>
         </div>
       </div>
+
+      {/* Token deployment feedback */}
+      {tokenError && (
+        <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          <span className="shrink-0">&#9888;</span>
+          <span>{tokenError}</span>
+          <button
+            onClick={() => setTokenError(null)}
+            className="ml-auto text-red-400/60 hover:text-red-400 transition-colors"
+          >
+            &times;
+          </button>
+        </div>
+      )}
+      {tokenSuccess && (
+        <div className="flex items-center gap-2 rounded-xl border border-lime/30 bg-lime/10 px-4 py-3 text-sm text-lime">
+          <span className="shrink-0">&#10003;</span>
+          <span>Token deployed successfully!</span>
+          <button
+            onClick={() => setTokenSuccess(false)}
+            className="ml-auto text-lime/60 hover:text-lime transition-colors"
+          >
+            &times;
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard

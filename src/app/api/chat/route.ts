@@ -1,10 +1,18 @@
 import { streamText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
-import { getProxyByHandle } from "@/lib/db/queries";
+import {
+  getProxyByHandle,
+  getUserByPrivyId,
+  upsertUser,
+  createConversation,
+  addMessage,
+  updateConversationTitle,
+} from "@/lib/db/queries";
 import { getChatContext } from "@/lib/ai/chat";
 
 export async function POST(request: Request) {
-  const { proxyHandle, messages } = await request.json();
+  const { proxyHandle, messages, privyId, conversationId } =
+    await request.json();
 
   if (!proxyHandle || !messages?.length) {
     return new Response("Missing proxyHandle or messages", { status: 400 });
@@ -15,18 +23,99 @@ export async function POST(request: Request) {
     return new Response("Proxy not found", { status: 404 });
   }
 
-  const lastUserMessage = messages.filter((m: { role: string }) => m.role === "user").pop();
-  const { systemPrompt, shouldFlag } = await getChatContext(proxy, lastUserMessage?.content ?? "");
+  // Resolve user for persistence (optional — chat still works without auth)
+  // Auto-create user record if they're authenticated but don't have a DB entry yet
+  let dbUserId: string | null = null;
+  if (privyId) {
+    let user = await getUserByPrivyId(privyId);
+    if (!user) {
+      user = await upsertUser({ privyId });
+    }
+    dbUserId = user.id;
+  }
+
+  // Create or reuse conversation
+  let activeConversationId = conversationId ?? null;
+  if (!activeConversationId && dbUserId) {
+    const lastUserMsg = messages
+      .filter((m: { role: string }) => m.role === "user")
+      .pop();
+    const title = lastUserMsg?.content
+      ? lastUserMsg.content.slice(0, 80)
+      : "New conversation";
+    const convo = await createConversation(proxy.id, dbUserId, title);
+    activeConversationId = convo.id;
+  }
+
+  // Persist the user message
+  const lastUserMessage = messages
+    .filter((m: { role: string }) => m.role === "user")
+    .pop();
+  if (activeConversationId && lastUserMessage) {
+    await addMessage(activeConversationId, "user", lastUserMessage.content);
+  }
+
+  // Build context and stream
+  const { systemPrompt, shouldFlag } = await getChatContext(
+    proxy,
+    lastUserMessage?.content ?? ""
+  );
 
   const result = streamText({
     model: anthropic("claude-sonnet-4-20250514"),
     system: systemPrompt,
     messages,
     maxOutputTokens: 1024,
+    async onFinish({ text }) {
+      // Persist assistant response
+      if (activeConversationId && text) {
+        await addMessage(
+          activeConversationId,
+          "assistant",
+          text,
+          shouldFlag
+        );
+      }
+
+      // Update title if this is the first exchange (conversation just created)
+      if (activeConversationId && !conversationId && lastUserMessage?.content) {
+        await updateConversationTitle(
+          activeConversationId,
+          lastUserMessage.content.slice(0, 80)
+        );
+      }
+    },
   });
 
-  // TODO: if shouldFlag, queue the message for creator review after response
-  void shouldFlag;
+  const response = result.toTextStreamResponse();
 
-  return result.toTextStreamResponse();
+  // Attach conversation ID so the client can track it
+  if (activeConversationId) {
+    response.headers.set("X-Conversation-Id", activeConversationId);
+    // Ensure the header is accessible from client-side fetch
+    response.headers.set(
+      "Access-Control-Expose-Headers",
+      "X-Conversation-Id"
+    );
+  }
+
+  return response;
+}
+
+/** Separate endpoint to create a conversation (used as fallback by the client) */
+export async function PUT(request: Request) {
+  const { proxyHandle, privyId } = await request.json();
+  if (!proxyHandle || !privyId) {
+    return new Response("Missing proxyHandle or privyId", { status: 400 });
+  }
+  const proxy = await getProxyByHandle(proxyHandle);
+  if (!proxy) {
+    return new Response("Proxy not found", { status: 404 });
+  }
+  let user = await getUserByPrivyId(privyId);
+  if (!user) {
+    user = await upsertUser({ privyId });
+  }
+  const convo = await createConversation(proxy.id, user.id, "New conversation");
+  return Response.json({ conversationId: convo.id });
 }

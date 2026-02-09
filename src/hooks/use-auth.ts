@@ -33,11 +33,15 @@ export function useAuth() {
     router.push('/');
   }, [privyLogout, router]);
 
+  const twitter = user?.twitter as Record<string, unknown> | undefined;
+
   return {
     ready,
     authenticated,
     user,
     xHandle: user?.twitter?.username ?? null,
+    xDisplayName: (twitter?.name as string) ?? null,
+    xBio: (twitter?.bio as string) ?? (twitter?.description as string) ?? null,
     xProfileImageUrl: user?.twitter?.profilePictureUrl ?? null,
     walletAddress: user?.wallet?.address ?? null,
     login,

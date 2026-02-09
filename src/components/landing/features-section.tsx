@@ -38,7 +38,7 @@ const FEATURES: FeatureItem[] = [
   {
     icon: Gem,
     title: 'Agent Tokenomics',
-    desc: 'Each agent gets its own tradeable token launched on Base. Creators earn 50% of all fees — your clone is literally an asset.',
+    desc: 'Each agent gets its own tradeable token launched on Base. Proxies earn 50% of all fees — your clone is literally an asset.',
     visual: 'token',
     layout: 'vertical',
     gridClass: 'md:col-start-2 md:col-end-3 md:row-start-1 md:row-end-5',  // col 2, rows 1-4 (taller)
@@ -96,7 +96,7 @@ function TokenVisual() {
           <Zap size={10} className="text-lime" />
         </div>
         <span className="text-white text-[11px] font-medium leading-tight">
-          +50% creator<br />revenue
+          +50% proxy<br />revenue
         </span>
       </div>
       <div className="absolute bottom-4 left-5 flex items-end gap-1.5">

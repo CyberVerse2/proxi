@@ -124,7 +124,7 @@ export function ProxyCard({ proxy }: ProxyCardProps) {
       <div
         className={`
           absolute left-0 bottom-0 w-full px-2 pb-3 flex justify-center z-40
-          pointer-events-none
+          
         `}
       >
         <button

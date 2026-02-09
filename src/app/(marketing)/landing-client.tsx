@@ -41,7 +41,7 @@ export function LandingPageClient({ proxies }: LandingPageClientProps) {
         />
 
         <ProxyRow
-          title="Top Creators"
+          title="Top Proxies"
           subtitle="Most popular AI clones this week"
           proxies={filteredProxies}
           hideHeader

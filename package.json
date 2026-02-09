@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "clone": "tsx scripts/clone.ts"
+    "clone": "tsx scripts/clone.ts",
+    "db:push": "drizzle-kit push",
+    "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.38",
@@ -19,6 +21,7 @@
     "@trigger.dev/sdk": "^4.3.3",
     "@xdevplatform/xdk": "^0.4.0",
     "ai": "^6.0.77",
+    "clanker-sdk": "^4.2.10",
     "clsx": "^2.1.1",
     "dotenv": "^17.2.4",
     "drizzle-orm": "^0.45.1",

@@ -1,20 +1,63 @@
 /**
- * Token deployment via Clanker API on Base chain.
- * https://clanker.gitbook.io/clanker-documentation/authenticated/deploy-token-v4.0.0
+ * Token deployment via Clanker SDK (v4) on Base chain.
+ * Uses a server-side deployer wallet to sign transactions directly on-chain.
+ * https://clanker.gitbook.io/clanker-documentation/sdk/v4.0.0
  */
 
+import { Clanker } from "clanker-sdk/v4";
+import {
+  createWalletClient,
+  createPublicClient,
+  http,
+} from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { base } from "viem/chains";
 import { db } from "@/lib/db";
 import { proxyTokens, proxies } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
-const CLANKER_API = "https://www.clanker.world/api/tokens/deploy/v4";
-const CLANKER_API_KEY = process.env.CLANKER_API_KEY;
-const WETH_BASE = "0x4200000000000000000000000000000000000006";
+/* ────────────────────────────────────────────────────────── */
+/*  Deployer wallet setup                                     */
+/* ────────────────────────────────────────────────────────── */
+
+const DEPLOYER_PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY as
+  | `0x${string}`
+  | undefined;
+
+const RPC_URL =
+  process.env.NEXT_PUBLIC_BASE_RPC_URL ?? "https://mainnet.base.org";
+
+function getClankerClient() {
+  if (!DEPLOYER_PRIVATE_KEY) {
+    throw new Error(
+      "DEPLOYER_PRIVATE_KEY not configured. Add it to your .env file."
+    );
+  }
+
+  const account = privateKeyToAccount(DEPLOYER_PRIVATE_KEY);
+  const publicClient = createPublicClient({
+    chain: base,
+    transport: http(RPC_URL),
+  });
+  const wallet = createWalletClient({
+    account,
+    chain: base,
+    transport: http(RPC_URL),
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- viem minor version mismatch with SDK
+  return { clanker: new Clanker({ publicClient: publicClient as any, wallet: wallet as any }), account };
+}
+
+/* ────────────────────────────────────────────────────────── */
+/*  Deploy                                                    */
+/* ────────────────────────────────────────────────────────── */
 
 interface DeployTokenParams {
   name: string;
   symbol: string;
   proxyId: string;
+  /** Creator's wallet – set as reward recipient (earns LP fees) */
   creatorAddress: string;
   imageUrl?: string;
   description?: string;
@@ -22,88 +65,99 @@ interface DeployTokenParams {
 
 interface TokenDeployResult {
   tokenAddress: string;
+  txHash: string;
   success: boolean;
   chain: string;
 }
 
 /**
- * Deploy a proxy token on Base via Clanker v4.0.0 API.
+ * Deploy a proxy token on Base via the Clanker SDK.
+ *
+ * Admin architecture:
+ *  - tokenAdmin      = deployer wallet (controls metadata, image, verify)
+ *  - rewards admin   = deployer wallet (can redirect reward recipients)
+ *  - rewards recipient = creator wallet (earns LP fees)
  */
-export async function deployProxyToken(params: DeployTokenParams): Promise<TokenDeployResult> {
-  const { name, symbol, proxyId, creatorAddress, imageUrl, description } = params;
+export async function deployProxyToken(
+  params: DeployTokenParams
+): Promise<TokenDeployResult> {
+  const { name, symbol, proxyId, creatorAddress, imageUrl, description } =
+    params;
 
-  if (!CLANKER_API_KEY) {
-    throw new Error("CLANKER_API_KEY not configured. Add it to your .env file.");
-  }
+  const { clanker, account } = getClankerClient();
+  const deployerAddress = account.address;
 
-  // Generate a unique 32-character request key
-  const requestKey = crypto.randomUUID().replace(/-/g, "");
-
-  const body = {
-    token: {
-      name,
-      symbol,
-      image: imageUrl ?? undefined,
-      tokenAdmin: creatorAddress as `0x${string}`,
+  const { txHash, waitForTransaction, error } = await clanker.deploy({
+    name,
+    symbol,
+    image: imageUrl ?? "",
+    tokenAdmin: deployerAddress,
+    metadata: {
       description: description ?? `AI proxy token for ${name} on Proxi`,
-      requestKey,
     },
-    rewards: [
-      {
-        admin: creatorAddress as `0x${string}`,
-        recipient: creatorAddress as `0x${string}`,
-        allocation: 100,
-        rewardsToken: "Both",
-      },
-    ],
-    pool: {
-      type: "standard",
-      pairedToken: WETH_BASE,
+    context: {
+      interface: "Proxi",
+    },
+    rewards: {
+      recipients: [
+        {
+          admin: deployerAddress,
+          recipient: creatorAddress as `0x${string}`,
+          bps: 10_000, // 100% of rewards to creator
+          token: "Both",
+        },
+      ],
     },
     fees: {
       type: "static",
-      clankerFee: 1,
-      pairedFee: 1,
+      clankerFee: 100, // 1% in bps
+      pairedFee: 100, // 1% in bps
     },
-    chainId: 8453, // Base
-  };
-
-  const response = await fetch(CLANKER_API, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": CLANKER_API_KEY,
-    },
-    body: JSON.stringify(body),
   });
 
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({ error: "Unknown error" }));
-    throw new Error(`Clanker deployment failed: ${err.error ?? response.statusText}`);
+  if (error) {
+    throw new Error(`Clanker deployment failed: ${error.message}`);
   }
 
-  const data = await response.json();
-  const tokenAddress = data.expectedAddress;
+  if (!txHash || !waitForTransaction) {
+    throw new Error("Clanker deployment failed: no transaction returned");
+  }
+
+  // Wait for on-chain confirmation
+  const txResult = await waitForTransaction();
+  if (txResult.error) {
+    throw new Error(
+      `Clanker tx confirmation failed: ${txResult.error.message}`
+    );
+  }
+
+  const tokenAddress = txResult.address;
 
   // Store in DB
   await db.insert(proxyTokens).values({
     proxyId,
     tokenAddress,
     chain: "base",
-    metadata: { requestKey, clankerResponse: data },
+    metadata: { txHash, deployerAddress },
   });
 
   // Update proxy record
-  await db.update(proxies)
+  await db
+    .update(proxies)
     .set({ tokenAddress, updatedAt: new Date() })
     .where(eq(proxies.id, proxyId));
 
   return {
     tokenAddress,
+    txHash,
     success: true,
     chain: "base",
   };
 }
+
+/* ────────────────────────────────────────────────────────── */
+/*  Price helpers (DexScreener)                               */
+/* ────────────────────────────────────────────────────────── */
 
 /**
  * Get token price from DexScreener API.
@@ -112,7 +166,7 @@ export async function getTokenPrice(tokenAddress: string): Promise<number> {
   try {
     const res = await fetch(
       `https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`,
-      { next: { revalidate: 60 } } // Cache for 60 seconds
+      { next: { revalidate: 60 } }
     );
     if (!res.ok) return 0;
     const data = await res.json();

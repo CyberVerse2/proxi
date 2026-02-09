@@ -11,13 +11,16 @@ import {
   leaderboard,
   pointEvents,
   contentChunks,
-  ratings
+  ratings,
+  botState,
 } from './schema';
 import type { NewProxy, NewUser } from './schema';
 
 /* ---------- proxy queries ---------- */
 export async function getProxyByHandle(handle: string) {
-  const [p] = await db.select().from(proxies)
+  const [p] = await db
+    .select()
+    .from(proxies)
     .where(sql`lower(${proxies.xHandle}) = lower(${handle})`)
     .limit(1);
   return p ?? null;
@@ -79,6 +82,15 @@ export async function getTrendingProxies(limit = 10) {
     .limit(limit);
 }
 
+export async function getNewestProxies(limit = 8) {
+  return db
+    .select()
+    .from(proxies)
+    .where(eq(proxies.status, 'live'))
+    .orderBy(desc(proxies.createdAt))
+    .limit(limit);
+}
+
 /* ---------- user queries ---------- */
 export async function getUserByPrivyId(privyId: string) {
   const [u] = await db.select().from(users).where(eq(users.privyId, privyId)).limit(1);
@@ -109,8 +121,11 @@ export async function getAllCategories() {
 }
 
 /* ---------- conversation queries ---------- */
-export async function createConversation(proxyId: string, userId: string) {
-  const [c] = await db.insert(conversations).values({ proxyId, userId }).returning();
+export async function createConversation(proxyId: string, userId: string, title?: string) {
+  const [c] = await db
+    .insert(conversations)
+    .values({ proxyId, userId, title: title ?? null })
+    .returning();
   return c;
 }
 
@@ -126,7 +141,10 @@ export async function addMessage(
     .returning();
   await db
     .update(conversations)
-    .set({ totalMessages: sql`${conversations.totalMessages} + 1` })
+    .set({
+      totalMessages: sql`${conversations.totalMessages} + 1`,
+      updatedAt: new Date(),
+    })
     .where(eq(conversations.id, conversationId));
   return m;
 }
@@ -137,6 +155,35 @@ export async function getConversationMessages(conversationId: string) {
     .from(messages)
     .where(eq(messages.conversationId, conversationId))
     .orderBy(asc(messages.createdAt));
+}
+
+export async function getUserConversations(userId: string, proxyId: string) {
+  return db
+    .select({
+      id: conversations.id,
+      title: conversations.title,
+      updatedAt: conversations.updatedAt,
+      totalMessages: conversations.totalMessages,
+    })
+    .from(conversations)
+    .where(and(eq(conversations.userId, userId), eq(conversations.proxyId, proxyId)))
+    .orderBy(desc(conversations.updatedAt));
+}
+
+export async function updateConversationTitle(conversationId: string, title: string) {
+  await db
+    .update(conversations)
+    .set({ title })
+    .where(eq(conversations.id, conversationId));
+}
+
+export async function getConversationById(conversationId: string) {
+  const [c] = await db
+    .select()
+    .from(conversations)
+    .where(eq(conversations.id, conversationId))
+    .limit(1);
+  return c ?? null;
 }
 
 /* ---------- queue queries ---------- */
@@ -260,4 +307,24 @@ export async function getProxyChunks(proxyId: string, limit = 500) {
     .where(eq(contentChunks.proxyId, proxyId))
     .orderBy(desc(contentChunks.priority))
     .limit(limit);
+}
+
+/* ---------- bot state (key-value) ---------- */
+export async function getBotState(key: string): Promise<string | null> {
+  const [row] = await db
+    .select()
+    .from(botState)
+    .where(eq(botState.key, key))
+    .limit(1);
+  return row?.value ?? null;
+}
+
+export async function setBotState(key: string, value: string): Promise<void> {
+  await db
+    .insert(botState)
+    .values({ key, value, updatedAt: new Date() })
+    .onConflictDoUpdate({
+      target: botState.key,
+      set: { value, updatedAt: new Date() },
+    });
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Trophy, Medal, Crown, Star, TrendingUp, Ghost } from "lucide-react";
+import { Trophy, Medal, Crown, Star, Ghost } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,13 +34,14 @@ interface Props {
 export function LeaderboardClient({ entries }: Props) {
   const { user } = useAuth();
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const myEntry = useMemo(() => {
     if (!user?.id) return null;
     return entries.find((e) => e.privyId === user.id) ?? null;
   }, [entries, user?.id]);
 
   return (
-    <div className="p-6 md:p-8 space-y-6">
+    <div className="p-6 md:p-8 space-y-6 max-w-5xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold text-white">Leaderboard</h1>
         <p className="text-gray text-sm mt-0.5">Top community members by points</p>

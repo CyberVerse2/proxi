@@ -9,8 +9,8 @@ import {
 import { cn } from "@/lib/utils";
 
 export const CATEGORIES = [
-  { id: "all", label: "All Creators", icon: LayoutGrid },
-  { id: "top", label: "Top Creators", icon: Flame },
+  { id: "all", label: "All Proxies", icon: LayoutGrid },
+  { id: "top", label: "Top Proxies", icon: Flame },
   { id: "trending", label: "Trending", icon: TrendingUp },
   { id: "founders", label: "Founders", icon: Building2 },
   { id: "influencers", label: "Influencers", icon: Sparkles },
@@ -25,7 +25,7 @@ interface TabSectionProps {
   /** Landing page only: show category header with See all button */
   showSeeAll?: boolean;
   seeAllHref?: string;
-  /** Subtitle for the active category (e.g. "Featured Creators") */
+  /** Subtitle for the active category (e.g. "Featured Proxies") */
   seeAllSubtitle?: string;
   /** Use compact pill style (explore page) vs icon-above-text (landing) */
   variant?: "default" | "compact";
@@ -36,7 +36,7 @@ export function TabSection({
   onChange,
   showSeeAll = false,
   seeAllHref,
-  seeAllSubtitle = "Featured Creators",
+  seeAllSubtitle = "Featured Proxies",
   variant = "default",
 }: TabSectionProps) {
   const activeCat = CATEGORIES.find((c) => c.id === active) ?? CATEGORIES[0];

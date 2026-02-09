@@ -85,11 +85,15 @@ export const conversations = pgTable("conversations", {
   id: uuid("id").defaultRandom().primaryKey(),
   proxyId: uuid("proxy_id").references(() => proxies.id).notNull(),
   userId: uuid("user_id").references(() => users.id).notNull(),
+  title: varchar("title", { length: 200 }),
   startedAt: timestamp("started_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
   endedAt: timestamp("ended_at"),
   totalMessages: integer("total_messages").default(0).notNull(),
   costTokens: integer("cost_tokens").default(0).notNull(),
-});
+}, (t) => [
+  index("idx_conversations_user_proxy").on(t.userId, t.proxyId),
+]);
 
 /* ---------- messages ---------- */
 export const messages = pgTable("messages", {
@@ -173,6 +177,13 @@ export const ingestionLogs = pgTable("ingestion_logs", {
   detail: text("detail"),
   startedAt: timestamp("started_at").defaultNow().notNull(),
   finishedAt: timestamp("finished_at"),
+});
+
+/* ---------- bot_state (key-value for poll cursors etc.) ---------- */
+export const botState = pgTable("bot_state", {
+  key: varchar("key", { length: 100 }).primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 /* ---------- type helpers ---------- */

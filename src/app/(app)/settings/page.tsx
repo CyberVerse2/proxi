@@ -14,6 +14,8 @@ export default function SettingsPage() {
     authenticated,
     ready,
     xHandle: authXHandle,
+    xDisplayName,
+    xBio,
     xProfileImageUrl,
     walletAddress
   } = useAuth();
@@ -22,9 +24,6 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [loaded, setLoaded] = useState(false);
-
-  // X profile data from Privy
-  const xDisplayName = (user?.twitter as unknown as Record<string, unknown> | undefined)?.name as string | undefined;
 
   // Load user data from DB, falling back to X data
   useEffect(() => {
@@ -39,11 +38,11 @@ export default function SettingsPage() {
         const proxyBio = data.proxy?.bio;
 
         setDisplayName(dbName || xDisplayName || '');
-        setBio(dbBio || proxyBio || '');
+        setBio(dbBio || xBio || proxyBio || '');
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
-  }, [ready, authenticated, user?.id, xDisplayName]);
+  }, [ready, authenticated, user?.id, xDisplayName, xBio]);
 
   const handleSave = async () => {
     if (!user?.id) return;
@@ -68,7 +67,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="p-6 md:p-8 space-y-6 max-w-2xl">
+    <div className="p-6 md:p-8 space-y-6 max-w-2xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold text-white">Settings</h1>
         <p className="text-gray text-sm mt-0.5">Manage your Proxi account</p>
@@ -176,7 +175,7 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-      <Button size="lg" className="w-full" onClick={handleSave} disabled={saving}>
+      <Button size="lg" className="w-full rounded-lg"  onClick={handleSave} disabled={saving}>
         {saving ? (
           <>
             <Loader2 size={16} className="animate-spin" /> Saving...

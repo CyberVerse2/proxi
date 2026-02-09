@@ -190,6 +190,88 @@ export async function getAllUserTweets(
 }
 
 /**
+ * Mention tweet with author info attached (for poll-mentions task).
+ */
+export interface XMention extends XTweet {
+  author_username?: string;
+  author_id?: string;
+}
+
+/**
+ * Fetch recent mentions of a user (the bot) since a given tweet ID.
+ * Returns the mentions plus the newest tweet ID for cursor tracking.
+ */
+export async function getBotMentions(
+  userId: string,
+  sinceId?: string,
+  maxResults = 100,
+): Promise<{ mentions: XMention[]; newestId: string | null }> {
+  try {
+    const client = getReadClient();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const params: Record<string, any> = {
+      maxResults: Math.min(maxResults, 100),
+      tweetFields: [
+        "created_at",
+        "public_metrics",
+        "author_id",
+        "in_reply_to_user_id",
+        "conversation_id",
+      ],
+      expansions: ["author_id"],
+      userFields: ["username"],
+    };
+
+    if (sinceId) {
+      params.sinceId = sinceId;
+    }
+
+    const response = await client.users.getMentions(userId, params);
+
+    const tweets = response.data;
+    if (!tweets?.length) {
+      return { mentions: [], newestId: null };
+    }
+
+    // Build author lookup from includes.users
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const includes = (response as any).includes as Record<string, any> | undefined;
+    const usersMap = new Map<string, string>();
+    if (includes?.users) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const u of includes.users as any[]) {
+        const uid = String(u.id);
+        const uname = String(u.username ?? u.userName ?? "");
+        if (uid && uname) usersMap.set(uid, uname);
+      }
+    }
+
+    const mentions: XMention[] = tweets.map((t) => {
+      const base = mapTweet(t);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const authorId = String((t as any).authorId ?? (t as any).author_id ?? "");
+      return {
+        ...base,
+        author_id: authorId || undefined,
+        author_username: usersMap.get(authorId) || undefined,
+      };
+    });
+
+    // Newest ID is the first item (most recent)
+    const newestId = mentions[0]?.id ?? null;
+
+    return { mentions, newestId };
+  } catch (error) {
+    console.error(
+      `[x/client] getBotMentions("${userId}") failed:`,
+      error,
+    );
+    return { mentions: [], newestId: null };
+  }
+}
+
+/**
  * Post a tweet (optionally as a reply). Uses OAuth 1.0a.
  * Returns the new tweet ID, or null on failure.
  */

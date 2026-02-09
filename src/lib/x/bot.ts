@@ -7,7 +7,7 @@
 import { tasks } from "@trigger.dev/sdk";
 import type { ingestProxy } from "@/trigger/ingest-proxy";
 import { sendTweet, getUserByUsername, type XTweet } from "./client";
-import { createProxy } from "@/lib/db/queries";
+import { createProxy, getProxyByHandle } from "@/lib/db/queries";
 
 const BOT_HANDLE = "proxifun";
 
@@ -60,6 +60,18 @@ export async function handleCreateMention(
   authorHandle: string,
   tweetId: string,
 ) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://proxi.fun";
+
+  // Step 0: Check if a proxy already exists for this handle
+  const existing = await getProxyByHandle(authorHandle);
+  if (existing) {
+    await sendTweet(
+      `@${authorHandle} You already have a proxy! Check it out: ${appUrl}/${authorHandle}`,
+      tweetId,
+    );
+    return;
+  }
+
   // Step 1: Verify the user exists on X
   const xUser = await getUserByUsername(authorHandle);
   if (!xUser) {
