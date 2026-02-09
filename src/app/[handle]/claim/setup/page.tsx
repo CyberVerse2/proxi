@@ -1137,14 +1137,60 @@ export default function SetupPage() {
     }
   };
 
-  /** Submit voice corrections as private notes */
+  /** Save voice corrections — updates the actual voiceProfile on the proxy record
+   *  so the AI uses the corrected voice in system prompts, AND stores as a
+   *  high-priority chunk for RAG retrieval. */
   const saveVoiceCorrections = async () => {
+    // 1. Merge slider adjustments + freeform corrections into the existing voiceProfile
+    const existingVoice = proxy?.voiceProfile ?? {};
+    const updatedVoice: Record<string, unknown> = { ...existingVoice };
+
+    // Map slider values to descriptive tone attributes
+    const formalityDesc =
+      sliders.formality <= 3 ? "formal and professional" :
+      sliders.formality <= 7 ? "balanced — can be casual or professional" :
+      "very casual and informal";
+    const playfulnessDesc =
+      sliders.playfulness <= 3 ? "serious and straightforward" :
+      sliders.playfulness <= 7 ? "occasionally playful but mostly grounded" :
+      "playful, witty, and loves banter";
+    const verbosityDesc =
+      sliders.verbosity <= 3 ? "extremely concise — one-liners preferred" :
+      sliders.verbosity <= 7 ? "moderate length — a few sentences" :
+      "detailed and thorough in explanations";
+
+    updatedVoice.tone = formalityDesc;
+    updatedVoice.communicationStyle = verbosityDesc;
+    updatedVoice.humorStyle = playfulnessDesc;
+
+    // Append freeform correction as a unique trait
+    if (voiceCorrection.trim()) {
+      const existing = Array.isArray(updatedVoice.uniqueTraits)
+        ? (updatedVoice.uniqueTraits as string[])
+        : [];
+      updatedVoice.uniqueTraits = [
+        ...existing,
+        `Creator correction: ${voiceCorrection.trim()}`,
+      ];
+    }
+
+    // 2. Patch the proxy record so the AI system prompt uses the updated voice
+    const privyId = user?.id;
+    if (privyId) {
+      await fetch("/api/proxy", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ privyId, voiceProfile: updatedVoice }),
+      });
+    }
+
+    // 3. Also store as a high-priority embedded chunk for RAG context
     const parts: string[] = [];
     parts.push(
-      `[Voice Tone Preferences] Formality: ${sliders.formality}/10, Playfulness: ${sliders.playfulness}/10, Verbosity: ${sliders.verbosity}/10`
+      `[Creator Voice Preferences] Tone: ${formalityDesc}. Style: ${verbosityDesc}. Humor: ${playfulnessDesc}.`
     );
     if (voiceCorrection.trim()) {
-      parts.push(`[Voice Correction] ${voiceCorrection.trim()}`);
+      parts.push(`[Creator Voice Correction] ${voiceCorrection.trim()}`);
     }
     await submitChunk(parts.join("\n"));
   };
@@ -1256,11 +1302,13 @@ export default function SetupPage() {
     }
   };
 
-  /** Complete setup — save config and redirect */
+  /** Complete setup — save config, update brain with topic prefs, and redirect */
   const handleComplete = async () => {
     setSaving(true);
     try {
-      // Submit topic preferences as private note
+      const privyId = user?.id;
+
+      // 1. Build updated coreBrain with topic preferences baked in
       const enabledTopics = [
         ...topics.strong.filter((t) => t.enabled).map((t) => t.name),
         ...topics.medium.filter((t) => t.enabled).map((t) => t.name),
@@ -1271,25 +1319,55 @@ export default function SetupPage() {
         ...topics.medium.filter((t) => !t.enabled).map((t) => t.name),
         ...topics.weak.filter((t) => !t.enabled).map((t) => t.name),
       ];
-      if (enabledTopics.length > 0 || disabledTopics.length > 0) {
-        await submitChunk(
-          `[Topic Preferences]\nEnabled: ${enabledTopics.join(", ")}\nDisabled: ${disabledTopics.join(", ")}`
-        );
+
+      // Merge into existing coreBrain — keep all existing data, update topicMap
+      const existingBrain = (proxy?.coreBrain ?? {}) as Record<string, unknown>;
+      const existingTopicMap = (existingBrain.topicMap ?? {}) as Record<string, string[]>;
+
+      // Remove disabled topics from topicMap, keep enabled ones
+      const updatedTopicMap: Record<string, string[]> = {};
+      for (const [topic, items] of Object.entries(existingTopicMap)) {
+        if (!disabledTopics.includes(topic)) {
+          updatedTopicMap[topic] = items;
+        }
+      }
+      // Add any new custom topics the creator added (from medium tier with posts=0)
+      for (const t of [...topics.strong, ...topics.medium, ...topics.weak]) {
+        if (t.enabled && t.posts === 0 && !updatedTopicMap[t.name]) {
+          updatedTopicMap[t.name] = []; // new custom topic
+        }
       }
 
-      // Save chat price and ticker
-      const privyId = user?.id;
+      const updatedBrain = {
+        ...existingBrain,
+        topicMap: updatedTopicMap,
+      };
+
+      // 2. Save chat price, ticker, AND updated coreBrain to the proxy record
       if (privyId) {
         await fetch("/api/proxy", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             privyId,
+            coreBrain: updatedBrain,
             ...(chatPrice ? { chatPrice: parseFloat(chatPrice) } : {}),
             ...(ticker.trim() ? { ticker: ticker.trim().toUpperCase() } : {}),
           }),
         });
       }
+
+      // 3. Also store topic preferences as an embedded chunk for RAG context
+      if (enabledTopics.length > 0 || disabledTopics.length > 0) {
+        await submitChunk(
+          `[Creator Topic Preferences]\nI'm an expert in and want to discuss: ${enabledTopics.join(", ")}.\n${
+            disabledTopics.length > 0
+              ? `I prefer NOT to discuss or give opinions on: ${disabledTopics.join(", ")}.`
+              : ""
+          }`
+        );
+      }
+
       router.push(`/${handle}`);
     } catch {
       router.push(`/${handle}`);
