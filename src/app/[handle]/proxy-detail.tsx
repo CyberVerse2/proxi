@@ -2,7 +2,25 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { BadgeCheck, Copy, Star, Brain, Crown, Gem, Info, ExternalLink, Droplets, TrendingUp, MessageSquare, Pencil, Loader2, ArrowLeftRight, DollarSign, Coins, CheckCircle, X, ShieldCheck } from 'lucide-react';
+import {
+  BadgeCheck,
+  Copy,
+  Star,
+  Brain,
+  Crown,
+  Gem,
+  Info,
+  ExternalLink,
+  Droplets,
+  TrendingUp,
+  MessageSquare,
+  Pencil,
+  Loader2,
+  ArrowLeftRight,
+  DollarSign,
+  Coins,
+  CheckCircle
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -49,7 +67,19 @@ interface FeeData {
   total: string;
 }
 
-export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, reviews: initialReviews = [] }: { proxy: ProxyData; feeData?: FeeData | null; tokenData?: TokenMarketData | null; liveMessageCount?: number; reviews?: ReviewItem[] }) {
+export function ProxyDetail({
+  proxy,
+  feeData,
+  tokenData,
+  liveMessageCount = 0,
+  reviews: initialReviews = []
+}: {
+  proxy: ProxyData;
+  feeData?: FeeData | null;
+  tokenData?: TokenMarketData | null;
+  liveMessageCount?: number;
+  reviews?: ReviewItem[];
+}) {
   const [activeTab, setActiveTab] = useState<string>('About Me');
   const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy');
   const [denomination, setDenomination] = useState<'messages' | 'usd'>('messages');
@@ -57,14 +87,22 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
   const [copied, setCopied] = useState(false);
 
   // Auth + Swap
-  const { user, walletAddress, login, authenticated, getAccessToken, xHandle: authXHandle, xDisplayName: authDisplayName, xProfileImageUrl: authAvatar } = useAuth();
+  const {
+    user,
+    walletAddress,
+    login,
+    authenticated,
+    xHandle: authXHandle,
+    xDisplayName: authDisplayName,
+    xProfileImageUrl: authAvatar
+  } = useAuth();
   const {
     getPrice,
     executeSwap,
     getUsdcBalance,
     getTokenBalance,
     loading: swapLoading,
-    error: swapError,
+    error: swapError
   } = useSwap();
 
   // Balances & pricing
@@ -90,7 +128,7 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
     try {
       const [usdc, tok] = await Promise.all([
         getUsdcBalance(),
-        proxy.tokenAddress ? getTokenBalance(proxy.tokenAddress) : Promise.resolve('0'),
+        proxy.tokenAddress ? getTokenBalance(proxy.tokenAddress) : Promise.resolve('0')
       ]);
       setUsdcBalance(usdc);
       setTokenBalance(tok);
@@ -108,12 +146,14 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
     if (!proxy.tokenAddress) return;
     setPricingLoading(true);
     // Ask 0x: if I sell $0.10 USDC, how many tokens do I get?
-    getPrice(proxy.tokenAddress, '1', 'buy').then((result) => {
-      if (result) {
-        const tokens = Number(result.buyAmount) / 1e18;
-        setTokensPerMessage(tokens > 0 ? formatTokenAmount(tokens) : null);
-      }
-    }).finally(() => setPricingLoading(false));
+    getPrice(proxy.tokenAddress, '1', 'buy')
+      .then((result) => {
+        if (result) {
+          const tokens = Number(result.buyAmount) / 1e18;
+          setTokensPerMessage(tokens > 0 ? formatTokenAmount(tokens) : null);
+        }
+      })
+      .finally(() => setPricingLoading(false));
   }, [proxy.tokenAddress, getPrice]);
 
   // Derive message count and USD cost from either denomination
@@ -134,7 +174,7 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
         txHash,
         mode: savedMode,
         messages: savedMsgCount,
-        usdcAmount: savedUsdcCost,
+        usdcAmount: savedUsdcCost
       });
       setAmount(denomination === 'messages' ? '10' : '1');
       refreshBalances();
@@ -160,7 +200,7 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
       const res = await fetch('/api/claim-fees', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ handle: proxy.xHandle }),
+        body: JSON.stringify({ handle: proxy.xHandle })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -174,45 +214,6 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
       setClaimResult({ success: false, message: 'Failed to claim fees' });
     } finally {
       setClaimLoading(false);
-    }
-  };
-
-  // Claim proxy state
-  const [showClaimModal, setShowClaimModal] = useState(false);
-  const [claimProxyLoading, setClaimProxyLoading] = useState(false);
-  const [claimProxyResult, setClaimProxyResult] = useState<{
-    success: boolean;
-    message: string;
-  } | null>(null);
-
-  const handleClaimProxy = async () => {
-    if (!authenticated) {
-      login();
-      return;
-    }
-    if (!getAccessToken) return;
-    setClaimProxyLoading(true);
-    setClaimProxyResult(null);
-    try {
-      const token = await getAccessToken();
-      const res = await fetch('/api/proxy/claim', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ handle: proxy.xHandle }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setClaimProxyResult({ success: false, message: data.error });
-      } else {
-        setClaimProxyResult({ success: true, message: data.message });
-      }
-    } catch {
-      setClaimProxyResult({ success: false, message: 'Failed to claim proxy' });
-    } finally {
-      setClaimProxyLoading(false);
     }
   };
 
@@ -237,8 +238,8 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
           text: reviewText.trim() || undefined,
           userName: authDisplayName ?? undefined,
           userHandle: authXHandle ?? undefined,
-          userAvatar: authAvatar ?? undefined,
-        }),
+          userAvatar: authAvatar ?? undefined
+        })
       });
       if (res.ok) {
         // Refresh reviews
@@ -280,9 +281,8 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
       <div className="flex gap-8">
         {/* ============ Left Column ============ */}
         <div className="flex-1 min-w-0 space-y-6">
-          {/* Unclaimed banner — only show if not logged in, or logged in as the matching X account */}
-          {!proxy.creatorId && !claimProxyResult?.success &&
-            (!authenticated || !authXHandle || authXHandle.toLowerCase() === proxy.xHandle.toLowerCase()) && (
+          {/* Unclaimed banner */}
+          {!proxy.creatorId && (
             <Card className="bg-lime/5 border-lime/20 flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
                 <Crown size={20} className="text-lime" />
@@ -293,19 +293,11 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
                   </p>
                 </div>
               </div>
-              <Button
-                size="sm"
-                className="rounded-lg cursor-pointer"
-                onClick={() => {
-                  if (!authenticated) {
-                    login();
-                  } else {
-                    setShowClaimModal(true);
-                  }
-                }}
-              >
-                Claim Proxy
-              </Button>
+              <Link href={`/${handle}/claim`}>
+                <Button size="sm" className="rounded-lg">
+                  Claim Proxy
+                </Button>
+              </Link>
             </Card>
           )}
 
@@ -424,7 +416,9 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
                           <Gem size={14} className="fill-purple" /> Fee earnings
                         </Badge>
                         <p className="text-white text-xl font-bold">
-                          {feeData ? `${parseFloat(feeData.total).toFixed(6)} WETH` : '0.000000 WETH'}
+                          {feeData
+                            ? `${parseFloat(feeData.total).toFixed(6)} WETH`
+                            : '0.000000 WETH'}
                         </p>
                       </div>
                     </div>
@@ -450,18 +444,22 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
 
                   {/* Claim result feedback */}
                   {claimResult && (
-                    <div className={cn(
-                      'rounded-xl px-4 py-3 text-sm',
-                      claimResult.success
-                        ? 'bg-emerald-400/10 border border-emerald-400/20 text-emerald-400'
-                        : 'bg-red-400/10 border border-red-400/20 text-red-400',
-                    )}>
+                    <div
+                      className={cn(
+                        'rounded-xl px-4 py-3 text-sm',
+                        claimResult.success
+                          ? 'bg-emerald-400/10 border border-emerald-400/20 text-emerald-400'
+                          : 'bg-red-400/10 border border-red-400/20 text-red-400'
+                      )}
+                    >
                       {claimResult.success ? (
                         claimResult.txHash ? (
                           <div className="flex items-center gap-2">
                             <CheckCircle size={16} className="shrink-0" />
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium">Claimed {parseFloat(claimResult.amount ?? '0').toFixed(6)} WETH</p>
+                              <p className="font-medium">
+                                Claimed {parseFloat(claimResult.amount ?? '0').toFixed(6)} WETH
+                              </p>
                               <a
                                 href={`https://basescan.org/tx/${claimResult.txHash}`}
                                 target="_blank"
@@ -521,7 +519,7 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
                       Send a direct message for a quick connection. Keep the conversation going with
                       additional messages if needed.
                     </p>
-                 
+
                     <div className="mt-3">
                       <Link href={`/${handle}/chat`}>
                         <Button size="sm" className="rounded-lg">
@@ -656,9 +654,7 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
                 <Card className="text-center py-8">
                   <Star size={32} className="text-gray/30 mx-auto mb-2" />
                   <p className="text-gray text-base">No reviews yet</p>
-                  <p className="text-gray/60 text-sm mt-1">
-                    Be the first to review this proxy
-                  </p>
+                  <p className="text-gray/60 text-sm mt-1">Be the first to review this proxy</p>
                 </Card>
               ) : (
                 <div className="space-y-3">
@@ -680,8 +676,12 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="text-white text-base font-semibold">{review.name}</span>
-                            <span className="text-gray/50 text-sm">{formatTimeAgo(review.createdAt)}</span>
+                            <span className="text-white text-base font-semibold">
+                              {review.name}
+                            </span>
+                            <span className="text-gray/50 text-sm">
+                              {formatTimeAgo(review.createdAt)}
+                            </span>
                           </div>
                           <div className="flex items-center gap-0.5 mt-0.5">
                             {Array.from({ length: 5 }).map((_, i) => (
@@ -699,9 +699,7 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
                         </div>
                       </div>
                       {review.text && (
-                        <p className="text-gray text-base leading-relaxed mt-3">
-                          {review.text}
-                        </p>
+                        <p className="text-gray text-base leading-relaxed mt-3">{review.text}</p>
                       )}
                     </Card>
                   ))}
@@ -711,136 +709,172 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
           )}
 
           {/* ─── Market Tab ─── */}
-          {activeTab === 'Market' && (() => {
-            const td = tokenData;
-            const tokenPrice = td?.priceUsd ?? price;
-            const tokenChange = td?.priceChange24h ?? priceChange;
-            const tokenMcap = td?.marketCap ?? proxy.marketCap ?? 0;
-            const tokenVol = td?.volume24h ?? proxy.volume24h ?? 0;
-            const tokenLiq = td?.liquidity ?? 0;
-            const history = td?.priceHistory ?? [];
+          {activeTab === 'Market' &&
+            (() => {
+              const td = tokenData;
+              const tokenPrice = td?.priceUsd ?? price;
+              const tokenChange = td?.priceChange24h ?? priceChange;
+              const tokenMcap = td?.marketCap ?? proxy.marketCap ?? 0;
+              const tokenVol = td?.volume24h ?? proxy.volume24h ?? 0;
+              const tokenLiq = td?.liquidity ?? 0;
+              const history = td?.priceHistory ?? [];
 
-            // Build SVG path from real price history
-            const chartPath = history.length >= 2 ? (() => {
-              const prices = history.map((p) => p.price);
-              const minP = Math.min(...prices);
-              const maxP = Math.max(...prices);
-              const range = maxP - minP || 1;
-              const W = 600;
-              const H = 120;
-              const pad = 8;
+              // Build SVG path from real price history
+              const chartPath =
+                history.length >= 2
+                  ? (() => {
+                      const prices = history.map((p) => p.price);
+                      const minP = Math.min(...prices);
+                      const maxP = Math.max(...prices);
+                      const range = maxP - minP || 1;
+                      const W = 600;
+                      const H = 120;
+                      const pad = 8;
 
-              return prices
-                .map((p, i) => {
-                  const x = (i / (prices.length - 1)) * W;
-                  const y = pad + ((maxP - p) / range) * (H - pad * 2);
-                  return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
-                })
-                .join(' ');
-            })() : null;
+                      return prices
+                        .map((p, i) => {
+                          const x = (i / (prices.length - 1)) * W;
+                          const y = pad + ((maxP - p) / range) * (H - pad * 2);
+                          return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+                        })
+                        .join(' ');
+                    })()
+                  : null;
 
-            return (
-              <div className="space-y-4">
-                {/* Price hero */}
-                <Card className="p-5">
-                  <div className="flex items-center gap-3 mb-3">
-                    {td?.logo && (
-                      <img src={td.logo} alt="" width={32} height={32} className="rounded-full" />
-                    )}
-                    <div>
-                      <p className="text-white font-bold text-xl">
-                        {td?.symbol ?? proxy.ticker ?? '—'}
-                      </p>
-                      <p className="text-gray text-sm">{td?.name ?? proxy.displayName}</p>
+              return (
+                <div className="space-y-4">
+                  {/* Price hero */}
+                  <Card className="p-5">
+                    <div className="flex items-center gap-3 mb-3">
+                      {td?.logo && (
+                        <img src={td.logo} alt="" width={32} height={32} className="rounded-full" />
+                      )}
+                      <div>
+                        <p className="text-white font-bold text-xl">
+                          {td?.symbol ?? proxy.ticker ?? '—'}
+                        </p>
+                        <p className="text-gray text-sm">{td?.name ?? proxy.displayName}</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-baseline gap-3">
-                    <span className="text-white text-4xl font-bold">
-                      {tokenPrice > 0 ? formatUsd(tokenPrice) : '—'}
-                    </span>
-                    {tokenChange !== 0 && (
-                      <span className={cn(
-                        'text-sm font-medium',
-                        tokenChange > 0 ? 'text-emerald-400' : 'text-red-400',
-                      )}>
-                        {tokenChange > 0 ? '+' : ''}{tokenChange.toFixed(2)}%
+                    <div className="flex items-baseline gap-3">
+                      <span className="text-white text-4xl font-bold">
+                        {tokenPrice > 0 ? formatUsd(tokenPrice) : '—'}
                       </span>
-                    )}
+                      {tokenChange !== 0 && (
+                        <span
+                          className={cn(
+                            'text-sm font-medium',
+                            tokenChange > 0 ? 'text-emerald-400' : 'text-red-400'
+                          )}
+                        >
+                          {tokenChange > 0 ? '+' : ''}
+                          {tokenChange.toFixed(2)}%
+                        </span>
+                      )}
+                    </div>
+                  </Card>
+
+                  {/* Price chart */}
+                  {chartPath && (
+                    <Card className="p-4">
+                      <p className="text-gray text-sm mb-2">30 Day Price</p>
+                      <div className="relative h-[160px] w-full">
+                        <svg
+                          viewBox="0 0 600 120"
+                          className="w-full h-full"
+                          preserveAspectRatio="none"
+                        >
+                          <defs>
+                            <linearGradient id="proxyPriceGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop
+                                offset="0%"
+                                stopColor={
+                                  tokenChange >= 0 ? 'rgb(52,211,153)' : 'rgb(248,113,113)'
+                                }
+                                stopOpacity="0.15"
+                              />
+                              <stop
+                                offset="100%"
+                                stopColor={
+                                  tokenChange >= 0 ? 'rgb(52,211,153)' : 'rgb(248,113,113)'
+                                }
+                                stopOpacity="0"
+                              />
+                            </linearGradient>
+                          </defs>
+                          <path d={`${chartPath} L600,120 L0,120 Z`} fill="url(#proxyPriceGrad)" />
+                          <path
+                            d={chartPath}
+                            fill="none"
+                            stroke={tokenChange >= 0 ? 'rgb(52,211,153)' : 'rgb(248,113,113)'}
+                            strokeWidth="2"
+                          />
+                        </svg>
+                      </div>
+                    </Card>
+                  )}
+
+                  {/* Stats grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <Card>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <TrendingUp size={14} className="text-gray" />
+                        <p className="text-gray text-sm">Market Cap</p>
+                      </div>
+                      <p className="text-white text-xl font-bold">
+                        {tokenMcap > 0 ? formatCompact(tokenMcap) : '—'}
+                      </p>
+                    </Card>
+                    <Card>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          className="text-gray"
+                        >
+                          <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+                        </svg>
+                        <p className="text-gray text-sm">24h Volume</p>
+                      </div>
+                      <p className="text-white text-xl font-bold">
+                        {tokenVol > 0 ? formatCompact(tokenVol) : '—'}
+                      </p>
+                    </Card>
+                    <Card>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Droplets size={14} className="text-gray" />
+                        <p className="text-gray text-sm">Liquidity</p>
+                      </div>
+                      <p className="text-white text-xl font-bold">
+                        {tokenLiq > 0 ? formatCompact(tokenLiq) : '—'}
+                      </p>
+                    </Card>
+                    <Card>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <MessageSquare size={14} className="text-gray" />
+                        <p className="text-gray text-sm">Messages</p>
+                      </div>
+                      <p className="text-white text-xl font-bold">
+                        {liveMessageCount.toLocaleString()}
+                      </p>
+                    </Card>
                   </div>
-                </Card>
 
-                {/* Price chart */}
-                {chartPath && (
-                  <Card className="p-4">
-                    <p className="text-gray text-sm mb-2">30 Day Price</p>
-                    <div className="relative h-[160px] w-full">
-                      <svg viewBox="0 0 600 120" className="w-full h-full" preserveAspectRatio="none">
-                        <defs>
-                          <linearGradient id="proxyPriceGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor={tokenChange >= 0 ? 'rgb(52,211,153)' : 'rgb(248,113,113)'} stopOpacity="0.15" />
-                            <stop offset="100%" stopColor={tokenChange >= 0 ? 'rgb(52,211,153)' : 'rgb(248,113,113)'} stopOpacity="0" />
-                          </linearGradient>
-                        </defs>
-                        <path d={`${chartPath} L600,120 L0,120 Z`} fill="url(#proxyPriceGrad)" />
-                        <path d={chartPath} fill="none" stroke={tokenChange >= 0 ? 'rgb(52,211,153)' : 'rgb(248,113,113)'} strokeWidth="2" />
-                      </svg>
-                    </div>
-                  </Card>
-                )}
-
-                {/* Stats grid */}
-                <div className="grid grid-cols-2 gap-3">
-                  <Card>
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <TrendingUp size={14} className="text-gray" />
-                      <p className="text-gray text-sm">Market Cap</p>
-                    </div>
-                    <p className="text-white text-xl font-bold">
-                      {tokenMcap > 0 ? formatCompact(tokenMcap) : '—'}
-                    </p>
-                  </Card>
-                  <Card>
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray">
-                        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
-                      </svg>
-                      <p className="text-gray text-sm">24h Volume</p>
-                    </div>
-                    <p className="text-white text-xl font-bold">
-                      {tokenVol > 0 ? formatCompact(tokenVol) : '—'}
-                    </p>
-                  </Card>
-                  <Card>
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <Droplets size={14} className="text-gray" />
-                      <p className="text-gray text-sm">Liquidity</p>
-                    </div>
-                    <p className="text-white text-xl font-bold">
-                      {tokenLiq > 0 ? formatCompact(tokenLiq) : '—'}
-                    </p>
-                  </Card>
-                  <Card>
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <MessageSquare size={14} className="text-gray" />
-                      <p className="text-gray text-sm">Messages</p>
-                    </div>
-                    <p className="text-white text-xl font-bold">
-                      {liveMessageCount.toLocaleString()}
-                    </p>
-                  </Card>
+                  {/* Trade link */}
+                  {td?.dexUrl && (
+                    <a href={td.dexUrl} target="_blank" rel="noopener noreferrer">
+                      <Button variant="outline" className="w-full rounded-lg gap-2">
+                        Trade on DEX <ExternalLink size={14} />
+                      </Button>
+                    </a>
+                  )}
                 </div>
-
-                {/* Trade link */}
-                {td?.dexUrl && (
-                  <a href={td.dexUrl} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" className="w-full rounded-lg gap-2">
-                      Trade on DEX <ExternalLink size={14} />
-                    </Button>
-                  </a>
-                )}
-              </div>
-            );
-          })()}
+              );
+            })()}
         </div>
 
         {/* ============ Right Sidebar ============ */}
@@ -851,7 +885,16 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
               /* ─── Success State ─── */
               <div className="flex flex-col items-center text-center py-2 space-y-4">
                 <div className="w-14 h-14 rounded-full bg-emerald-400/10 flex items-center justify-center">
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgb(52, 211, 153)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="28"
+                    height="28"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="rgb(52, 211, 153)"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 </div>
@@ -876,7 +919,8 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
                       {swapSuccess.mode === 'buy' ? 'Cost' : 'Received'}
                     </span>
                     <span className="text-white font-medium">
-                      {swapSuccess.mode === 'buy' ? '' : '~'}${swapSuccess.usdcAmount.toFixed(2)} USDC
+                      {swapSuccess.mode === 'buy' ? '' : '~'}${swapSuccess.usdcAmount.toFixed(2)}{' '}
+                      USDC
                     </span>
                   </div>
                 </div>
@@ -903,7 +947,10 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
                 {/* Buy/Sell toggle */}
                 <div className="flex bg-white/6 rounded-xl p-1">
                   <button
-                    onClick={() => { setTradeMode('buy'); setAmount(denomination === 'messages' ? '10' : '1'); }}
+                    onClick={() => {
+                      setTradeMode('buy');
+                      setAmount(denomination === 'messages' ? '10' : '1');
+                    }}
                     className={cn(
                       'flex-1 py-2 text-sm font-semibold rounded-[10px] transition-colors cursor-pointer',
                       tradeMode === 'buy' ? 'bg-white/12 text-white' : 'text-gray hover:text-white'
@@ -912,7 +959,10 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
                     Buy
                   </button>
                   <button
-                    onClick={() => { setTradeMode('sell'); setAmount(denomination === 'messages' ? '10' : '1'); }}
+                    onClick={() => {
+                      setTradeMode('sell');
+                      setAmount(denomination === 'messages' ? '10' : '1');
+                    }}
                     className={cn(
                       'flex-1 py-2 text-sm font-semibold rounded-[10px] transition-colors cursor-pointer',
                       tradeMode === 'sell' ? 'bg-white/12 text-white' : 'text-gray hover:text-white'
@@ -928,7 +978,8 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
                     <div className="h-5 w-48 bg-white/6 rounded animate-pulse" />
                   ) : tokensPerMessage ? (
                     <p className="text-white text-sm font-medium">
-                      {tokensPerMessage} tokens <span className="text-gray">($0.10)</span> = 1 message
+                      {tokensPerMessage} tokens <span className="text-gray">($0.10)</span> = 1
+                      message
                     </p>
                   ) : null}
                   <div className="flex items-baseline gap-2.5">
@@ -953,8 +1004,12 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
                   <div className="flex items-center justify-between">
                     <label className="text-gray text-xs font-medium">
                       {denomination === 'messages'
-                        ? (tradeMode === 'buy' ? 'Messages to buy' : 'Messages to sell')
-                        : (tradeMode === 'buy' ? 'Amount to spend' : 'Amount to receive')}
+                        ? tradeMode === 'buy'
+                          ? 'Messages to buy'
+                          : 'Messages to sell'
+                        : tradeMode === 'buy'
+                          ? 'Amount to spend'
+                          : 'Amount to receive'}
                     </label>
                     {/* Denomination toggle */}
                     <button
@@ -1000,16 +1055,35 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
                     <p className="text-gray text-xs">
                       {denomination === 'messages' ? (
                         tradeMode === 'buy' ? (
-                          <>Cost: <span className="text-white font-medium">${usdcCost.toFixed(2)} USDC</span></>
+                          <>
+                            Cost:{' '}
+                            <span className="text-white font-medium">
+                              ${usdcCost.toFixed(2)} USDC
+                            </span>
+                          </>
                         ) : (
-                          <>You receive: <span className="text-white font-medium">~${usdcCost.toFixed(2)} USDC</span></>
+                          <>
+                            You receive:{' '}
+                            <span className="text-white font-medium">
+                              ~${usdcCost.toFixed(2)} USDC
+                            </span>
+                          </>
                         )
+                      ) : tradeMode === 'buy' ? (
+                        <>
+                          ={' '}
+                          <span className="text-white font-medium">
+                            {Math.round(msgCount)} messages
+                          </span>
+                        </>
                       ) : (
-                        tradeMode === 'buy' ? (
-                          <>= <span className="text-white font-medium">{Math.round(msgCount)} messages</span></>
-                        ) : (
-                          <>= <span className="text-white font-medium">{Math.round(msgCount)} messages</span> to sell</>
-                        )
+                        <>
+                          ={' '}
+                          <span className="text-white font-medium">
+                            {Math.round(msgCount)} messages
+                          </span>{' '}
+                          to sell
+                        </>
                       )}
                     </p>
                   )}
@@ -1045,8 +1119,7 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
                         >
                           ${label}
                         </button>
-                      ))
-                  }
+                      ))}
                 </div>
 
                 {/* Balance */}
@@ -1077,7 +1150,9 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
 
                 {/* Error */}
                 {swapError && (
-                  <p className="text-red-400 text-xs bg-red-400/10 rounded-xl px-3 py-2">{swapError}</p>
+                  <p className="text-red-400 text-xs bg-red-400/10 rounded-xl px-3 py-2">
+                    {swapError}
+                  </p>
                 )}
 
                 {/* CTA button */}
@@ -1102,10 +1177,10 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
                       <span className="flex items-center gap-2">
                         <Loader2 size={16} className="animate-spin" /> Processing...
                       </span>
+                    ) : tradeMode === 'buy' ? (
+                      `Buy ${Math.round(msgCount)} Messages — $${usdcCost.toFixed(2)}`
                     ) : (
-                      tradeMode === 'buy'
-                        ? `Buy ${Math.round(msgCount)} Messages — $${usdcCost.toFixed(2)}`
-                        : `Sell ${Math.round(msgCount)} Messages`
+                      `Sell ${Math.round(msgCount)} Messages`
                     )}
                   </Button>
                 )}
@@ -1196,7 +1271,9 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
                               />
                             ))}
                           </div>
-                          <span className="text-gray/50 text-xs">&middot; {formatTimeAgo(review.createdAt)}</span>
+                          <span className="text-gray/50 text-xs">
+                            &middot; {formatTimeAgo(review.createdAt)}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -1221,143 +1298,6 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
           </Card>
         </div>
       </div>
-
-      {/* ─── Claim Proxy Modal ─── */}
-      {showClaimModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowClaimModal(false)} />
-          <div className="relative z-10 w-[440px] max-w-[90vw] bg-[#1a1a1a] border border-white/10 rounded-2xl p-7 shadow-2xl">
-            <button
-              onClick={() => setShowClaimModal(false)}
-              className="absolute top-3 right-3 p-1.5 rounded-lg text-white/30 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-            >
-              <X size={16} />
-            </button>
-
-            {claimProxyResult?.success ? (
-              /* ─── Success ─── */
-              <div className="flex flex-col items-center text-center py-4 space-y-4">
-                <div className="w-16 h-16 rounded-full bg-emerald-400/10 flex items-center justify-center">
-                  <CheckCircle size={32} className="text-emerald-400" />
-                </div>
-                <div>
-                  <p className="text-white font-bold text-xl">Proxy Claimed!</p>
-                  <p className="text-gray text-sm mt-1.5 leading-relaxed">
-                    {claimProxyResult.message}
-                  </p>
-                </div>
-                <Button
-                  className="w-full rounded-xl h-11 text-sm font-bold cursor-pointer"
-                  onClick={() => window.location.reload()}
-                >
-                  Continue
-                </Button>
-              </div>
-            ) : (
-              /* ─── Claim Form ─── */
-              <div className="space-y-5">
-                <div className="flex items-center gap-4">
-                  <img
-                    src={avatar}
-                    alt={name}
-                    width={56}
-                    height={56}
-                    className="rounded-xl object-cover shrink-0"
-                  />
-                  <div>
-                    <h2 className="text-white font-bold text-xl">Claim @{handle}</h2>
-                    <p className="text-gray text-sm mt-0.5">
-                      Verify you own this X account
-                    </p>
-                  </div>
-                </div>
-
-                <div className="bg-white/4 rounded-xl p-4 space-y-3">
-                  <div className="flex items-start gap-3">
-                    <ShieldCheck size={20} className="text-lime shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-white text-sm font-medium">How claiming works</p>
-                      <p className="text-gray text-xs leading-relaxed mt-1">
-                        Log in with the X (Twitter) account <span className="text-white font-medium">@{handle}</span>.
-                        We&apos;ll verify your handle matches this proxy and link it to your account.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <Coins size={20} className="text-lime shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-white text-sm font-medium">Earn royalties</p>
-                      <p className="text-gray text-xs leading-relaxed mt-1">
-                        Once claimed, you&apos;ll earn WETH fees from LP trading activity on your token.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Status: show which X account is logged in */}
-                {authenticated && authXHandle && (
-                  <div className={cn(
-                    'rounded-xl px-4 py-3 text-sm',
-                    authXHandle.toLowerCase() === proxy.xHandle.toLowerCase()
-                      ? 'bg-emerald-400/10 border border-emerald-400/20 text-emerald-400'
-                      : 'bg-amber-400/10 border border-amber-400/20 text-amber-400'
-                  )}>
-                    {authXHandle.toLowerCase() === proxy.xHandle.toLowerCase() ? (
-                      <div className="flex items-center gap-2">
-                        <CheckCircle size={16} />
-                        <span>Logged in as <span className="font-semibold">@{authXHandle}</span> — ready to claim!</span>
-                      </div>
-                    ) : (
-                      <p>
-                        You&apos;re logged in as <span className="font-semibold">@{authXHandle}</span>, but this proxy belongs to <span className="font-semibold">@{handle}</span>. Log in with the correct X account to claim.
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* Error */}
-                {claimProxyResult && !claimProxyResult.success && (
-                  <p className="text-red-400 text-sm bg-red-400/10 rounded-xl px-4 py-3">
-                    {claimProxyResult.message}
-                  </p>
-                )}
-
-                {/* Action button */}
-                {!authenticated ? (
-                  <Button
-                    className="w-full rounded-xl h-11 text-sm font-bold cursor-pointer"
-                    onClick={login}
-                  >
-                    Log in with X to Claim
-                  </Button>
-                ) : authXHandle?.toLowerCase() === proxy.xHandle.toLowerCase() ? (
-                  <Button
-                    className="w-full rounded-xl h-11 text-sm font-bold cursor-pointer"
-                    onClick={handleClaimProxy}
-                    disabled={claimProxyLoading}
-                  >
-                    {claimProxyLoading ? (
-                      <span className="flex items-center gap-2">
-                        <Loader2 size={16} className="animate-spin" /> Claiming...
-                      </span>
-                    ) : (
-                      'Claim This Proxy'
-                    )}
-                  </Button>
-                ) : (
-                  <Button
-                    className="w-full rounded-xl h-11 text-sm font-bold cursor-pointer"
-                    variant="outline"
-                    onClick={login}
-                  >
-                    Switch X Account
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

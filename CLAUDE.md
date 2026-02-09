@@ -1,202 +1,88 @@
-<!-- TRIGGER.DEV basic START -->
-# Trigger.dev Basic Tasks (v4)
+# CLAUDE.md
 
-**MUST use `@trigger.dev/sdk`, NEVER `client.defineJob`**
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Basic Task
+## What is Proxi
 
-```ts
-import { task } from "@trigger.dev/sdk";
+Proxi is an AI-powered platform where users create AI clones of themselves from their X/Twitter data. Users tweet `@proxiagent` to trigger ingestion of their X history, which builds voice profiles, embeddings, and a "brain" for chat. Each proxy gets an ERC-20 token deployed on Base chain. Users can chat with proxies (priced in USDC) and trade proxy tokens.
 
-export const processData = task({
-  id: "process-data",
-  retry: {
-    maxAttempts: 10,
-    factor: 1.8,
-    minTimeoutInMs: 500,
-    maxTimeoutInMs: 30_000,
-    randomize: false,
-  },
-  run: async (payload: { userId: string; data: any[] }) => {
-    // Task logic - runs for long time, no timeouts
-    console.log(`Processing ${payload.data.length} items for user ${payload.userId}`);
-    return { processed: payload.data.length };
-  },
-});
+## Commands
+
+```bash
+npm run dev          # Next.js dev server (port 3000)
+npm run build        # Production build
+npm run lint         # ESLint
+npm run db:push      # Push Drizzle schema to database
+npm run db:generate  # Generate Drizzle migrations
+npm run db:seed      # Seed categories (tsx scripts/seed-categories.ts)
+npm run clone        # Run clone script (tsx scripts/clone.ts)
 ```
 
-## Schema Task (with validation)
+No test runner is configured yet.
 
-```ts
-import { schemaTask } from "@trigger.dev/sdk";
-import { z } from "zod";
+## Tech Stack
 
-export const validatedTask = schemaTask({
-  id: "validated-task",
-  schema: z.object({
-    name: z.string(),
-    age: z.number(),
-    email: z.string().email(),
-  }),
-  run: async (payload) => {
-    // Payload is automatically validated and typed
-    return { message: `Hello ${payload.name}, age ${payload.age}` };
-  },
-});
-```
+- **Framework**: Next.js 16 (App Router), React 19, TypeScript (strict)
+- **Styling**: Tailwind CSS 4 with `clsx` + `tailwind-merge` via `cn()` in `src/lib/utils.ts`
+- **Database**: PostgreSQL with Drizzle ORM, pgvector for embeddings (1536 dims)
+- **Auth**: Privy (Twitter OAuth + embedded Ethereum wallets)
+- **AI**: Vercel AI SDK with Anthropic (chat) and OpenAI (embeddings, text-embedding-3-small)
+- **Blockchain**: Base chain, Clanker SDK v4 (token deployment), 0x API (swaps), viem/wagmi
+- **Background Jobs**: Trigger.dev v4 (`@trigger.dev/sdk`)
+- **X/Twitter**: `@xdevplatform/xdk` for API v2
 
-## Triggering Tasks
+## Architecture
 
-### From Backend Code
+### Path alias
+`@/*` maps to `./src/*`
 
-```ts
-import { tasks } from "@trigger.dev/sdk";
-import type { processData } from "./trigger/tasks";
+### App Router structure
+- `src/app/(marketing)/` - Public landing pages
+- `src/app/(app)/` - Authenticated app pages (dashboard, explore, portfolio)
+- `src/app/[handle]/` - Dynamic proxy pages (chat, claim, visualize)
+- `src/app/api/` - API routes
 
-// Single trigger
-const handle = await tasks.trigger<typeof processData>("process-data", {
-  userId: "123",
-  data: [{ id: 1 }, { id: 2 }],
-});
+### Key directories
+- `src/lib/db/` - Drizzle schema (`schema.ts`), queries (`queries.ts`), client (`index.ts`)
+- `src/lib/ai/` - AI pipeline: RAG, embeddings, voice analysis, brain building, chat context
+- `src/lib/x/` - X/Twitter: ingestion pipeline, bot, client, filtering, scoring
+- `src/lib/chain/` - Blockchain: token deployment, chain config
+- `src/lib/auth/` - Privy server-side auth
+- `src/trigger/` - Trigger.dev tasks (claim-fees, ingest-proxy, poll-mentions, auto-refresh)
+- `src/hooks/` - React hooks (use-auth, use-chat, use-swap, use-sidebar)
+- `src/components/ui/` - Base UI components (button, badge, card, input)
 
-// Batch trigger (up to 1,000 items, 3MB per payload)
-const batchHandle = await tasks.batchTrigger<typeof processData>("process-data", [
-  { payload: { userId: "123", data: [{ id: 1 }] } },
-  { payload: { userId: "456", data: [{ id: 2 }] } },
-]);
-```
+### Client-side providers
+`src/components/providers.tsx` wraps the app with `PrivyProvider` (Base chain, Twitter+wallet login, dark theme) and `QueryClientProvider`.
 
-### Debounced Triggering
+### Authentication flow
+- Client: `useAuth()` hook wraps `usePrivy()` with graceful fallback if Privy isn't configured
+- Server: `src/lib/auth/privy.ts` handles server-side user/wallet creation
+- Login methods: Twitter OAuth and wallet connect
 
-Consolidate multiple triggers into a single execution:
+### Database schema
+13 tables defined in `src/lib/db/schema.ts`. Key enums:
+- `proxy_status`: pending | building | live | paused | failed
+- `content_type`: tweet | reply | thread | private_note
 
-```ts
-// Multiple rapid triggers with same key = single execution
-await myTask.trigger(
-  { userId: "123" },
-  {
-    debounce: {
-      key: "user-123-update",  // Unique key for debounce group
-      delay: "5s",              // Wait before executing
-    },
-  }
-);
+The `contentChunks` table stores vector embeddings (1536 dimensions) for RAG search.
 
-// Trailing mode: use payload from LAST trigger
-await myTask.trigger(
-  { data: "latest-value" },
-  {
-    debounce: {
-      key: "trailing-example",
-      delay: "10s",
-      mode: "trailing",  // Default is "leading" (first payload)
-    },
-  }
-);
-```
+### AI/Ingestion pipeline
+The ingestion pipeline in `src/lib/x/ingest.ts` runs 11 steps: fetch profile, pull tweets, reconstruct threads, filter, score, embed chunks, voice analysis, example selection, brain building, category classification, and token deployment. Chat context is built via RAG (semantic search + priority scoring) with voice profile and brain data.
 
-**Debounce modes:**
-- `leading` (default): Uses payload from first trigger, subsequent triggers only reschedule
-- `trailing`: Uses payload from most recent trigger
+### Token lifecycle
+Tokens deploy via Clanker SDK v4. The deployer wallet signs transactions; the creator wallet receives LP fee rewards. Fee claiming runs hourly as a scheduled Trigger.dev cron task. Swaps use 0x API for USDC-to-token trades.
 
-### From Inside Tasks (with Result handling)
+## Trigger.dev Rules
 
-```ts
-export const parentTask = task({
-  id: "parent-task",
-  run: async (payload) => {
-    // Trigger and continue
-    const handle = await childTask.trigger({ data: "value" });
+**MUST use `@trigger.dev/sdk` v4. NEVER use deprecated `client.defineJob` from v2.**
 
-    // Trigger and wait - returns Result object, NOT task output
-    const result = await childTask.triggerAndWait({ data: "value" });
-    if (result.ok) {
-      console.log("Task output:", result.output); // Actual task return value
-    } else {
-      console.error("Task failed:", result.error);
-    }
+- Tasks live in `src/trigger/` and are configured in `trigger.config.ts`
+- `triggerAndWait()` returns a `Result` object - check `result.ok` before accessing `result.output`
+- Never wrap `triggerAndWait`, `batchTriggerAndWait`, or `wait` calls in `Promise.all`/`Promise.allSettled`
+- Use `import type` for task references when triggering from backend code
+- Scheduled tasks use `schedules.task()` with `cron` property
 
-    // Quick unwrap (throws on error)
-    const output = await childTask.triggerAndWait({ data: "value" }).unwrap();
+## Environment
 
-    // Batch trigger and wait
-    const results = await childTask.batchTriggerAndWait([
-      { payload: { data: "item1" } },
-      { payload: { data: "item2" } },
-    ]);
-
-    for (const run of results) {
-      if (run.ok) {
-        console.log("Success:", run.output);
-      } else {
-        console.log("Failed:", run.error);
-      }
-    }
-  },
-});
-
-export const childTask = task({
-  id: "child-task",
-  run: async (payload: { data: string }) => {
-    return { processed: payload.data };
-  },
-});
-```
-
-> Never wrap triggerAndWait or batchTriggerAndWait calls in a Promise.all or Promise.allSettled as this is not supported in Trigger.dev tasks.
-
-## Waits
-
-```ts
-import { task, wait } from "@trigger.dev/sdk";
-
-export const taskWithWaits = task({
-  id: "task-with-waits",
-  run: async (payload) => {
-    console.log("Starting task");
-
-    // Wait for specific duration
-    await wait.for({ seconds: 30 });
-    await wait.for({ minutes: 5 });
-    await wait.for({ hours: 1 });
-    await wait.for({ days: 1 });
-
-    // Wait until specific date
-    await wait.until({ date: new Date("2024-12-25") });
-
-    // Wait for token (from external system)
-    await wait.forToken({
-      token: "user-approval-token",
-      timeoutInSeconds: 3600, // 1 hour timeout
-    });
-
-    console.log("All waits completed");
-    return { status: "completed" };
-  },
-});
-```
-
-> Never wrap wait calls in a Promise.all or Promise.allSettled as this is not supported in Trigger.dev tasks.
-
-## Key Points
-
-- **Result vs Output**: `triggerAndWait()` returns a `Result` object with `ok`, `output`, `error` properties - NOT the direct task output
-- **Type safety**: Use `import type` for task references when triggering from backend
-- **Waits > 5 seconds**: Automatically checkpointed, don't count toward compute usage
-- **Debounce + idempotency**: Idempotency keys take precedence over debounce settings
-
-## NEVER Use (v2 deprecated)
-
-```ts
-// BREAKS APPLICATION
-client.defineJob({
-  id: "job-id",
-  run: async (payload, io) => {
-    /* ... */
-  },
-});
-```
-
-Use SDK (`@trigger.dev/sdk`), check `result.ok` before accessing `result.output`
-
-<!-- TRIGGER.DEV basic END -->
+All required env vars are documented in `.env.example`. Key groups: database (DATABASE_URL), auth (Privy), AI (Anthropic + OpenAI), X/Twitter (bearer + OAuth 1.0a), Trigger.dev, blockchain (Base RPC, deployer key, platform wallet), and external APIs (Alchemy, 0x).

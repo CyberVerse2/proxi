@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getProxyByHandle } from "@/lib/db/queries";
+import { getProxyByHandle, getUserByXHandle } from "@/lib/db/queries";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -39,21 +39,21 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!proxy.creatorId) {
-      return NextResponse.json(
-        { error: "This proxy has no creator" },
-        { status: 400 },
-      );
+    // Look up creator's wallet: prefer creatorId, fall back to xHandle
+    let walletAddress: string | null = null;
+    if (proxy.creatorId) {
+      const [creator] = await db
+        .select({ walletAddress: users.walletAddress })
+        .from(users)
+        .where(eq(users.id, proxy.creatorId))
+        .limit(1);
+      walletAddress = creator?.walletAddress ?? null;
+    } else {
+      const userByHandle = await getUserByXHandle(proxy.xHandle);
+      walletAddress = userByHandle?.walletAddress ?? null;
     }
 
-    // Look up creator's wallet
-    const [creator] = await db
-      .select({ walletAddress: users.walletAddress })
-      .from(users)
-      .where(eq(users.id, proxy.creatorId))
-      .limit(1);
-
-    if (!creator?.walletAddress) {
+    if (!walletAddress) {
       return NextResponse.json(
         { error: "Creator wallet not found" },
         { status: 400 },
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
     }
 
     const result = await claimWethFees(
-      creator.walletAddress as `0x${string}`,
+      walletAddress as `0x${string}`,
     );
 
     if (!result) {

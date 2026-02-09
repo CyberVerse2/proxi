@@ -102,6 +102,15 @@ export async function createUser(data: NewUser) {
   return u;
 }
 
+export async function getUserByXHandle(xHandle: string) {
+  const [u] = await db
+    .select()
+    .from(users)
+    .where(sql`lower(${users.xHandle}) = lower(${xHandle})`)
+    .limit(1);
+  return u ?? null;
+}
+
 export async function upsertUser(data: NewUser) {
   const existing = await getUserByPrivyId(data.privyId);
   if (existing) {

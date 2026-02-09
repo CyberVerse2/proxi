@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getProxyByHandle, getProxyMessageCount, getProxyReviews } from "@/lib/db/queries";
+import { getProxyByHandle, getProxyMessageCount, getProxyReviews, getUserByXHandle } from "@/lib/db/queries";
 import { AppShell } from "@/components/layout/app-shell";
 import { ProxyDetail } from "./proxy-detail";
 import { db } from "@/lib/db";
@@ -42,18 +42,25 @@ export default async function ProxyDetailPage({ params }: Props) {
     );
 
     const feePromise = (async () => {
-      if (!proxy.creatorId) return null;
-      const [creator] = await db
-        .select({ walletAddress: users.walletAddress })
-        .from(users)
-        .where(eq(users.id, proxy.creatorId))
-        .limit(1);
+      // Find the wallet: prefer creatorId lookup, fall back to xHandle
+      let walletAddress: string | null = null;
+      if (proxy.creatorId) {
+        const [creator] = await db
+          .select({ walletAddress: users.walletAddress })
+          .from(users)
+          .where(eq(users.id, proxy.creatorId))
+          .limit(1);
+        walletAddress = creator?.walletAddress ?? null;
+      } else {
+        const userByHandle = await getUserByXHandle(proxy.xHandle);
+        walletAddress = userByHandle?.walletAddress ?? null;
+      }
 
-      if (!creator?.walletAddress) return null;
+      if (!walletAddress) return null;
 
       const fees = await getTotalWethFees(
         proxy.tokenAddress!,
-        creator.walletAddress as `0x${string}`,
+        walletAddress as `0x${string}`,
       );
       return {
         claimed: formatEther(fees.claimed),

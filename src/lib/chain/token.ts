@@ -14,7 +14,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { base } from "viem/chains";
 import { db } from "@/lib/db";
 import { proxyTokens, proxies, users } from "@/lib/db/schema";
-import { eq, isNotNull } from "drizzle-orm";
+import { eq, and, isNotNull, isNull, sql } from "drizzle-orm";
 
 /* ────────────────────────────────────────────────────────── */
 /*  Deployer wallet setup                                     */
@@ -264,15 +264,28 @@ export async function claimWethFees(
 /**
  * Get all unique reward recipient wallets from deployed proxies.
  * Returns the platform wallet + every creator wallet that has a token.
+ * For unclaimed proxies (no creatorId), looks up wallets by xHandle match.
  */
 export async function getAllRewardRecipients(): Promise<`0x${string}`[]> {
-  const results = await db
+  // Claimed proxies: join on creatorId
+  const claimedResults = await db
     .select({
       walletAddress: users.walletAddress,
     })
     .from(proxies)
     .innerJoin(users, eq(proxies.creatorId, users.id))
     .where(isNotNull(proxies.tokenAddress));
+
+  // Unclaimed proxies: match users by xHandle
+  const unclaimedResults = await db
+    .select({
+      walletAddress: users.walletAddress,
+    })
+    .from(proxies)
+    .innerJoin(users, sql`lower(${users.xHandle}) = lower(${proxies.xHandle})`)
+    .where(
+      and(isNotNull(proxies.tokenAddress), isNull(proxies.creatorId))
+    );
 
   const wallets = new Set<`0x${string}`>();
 
@@ -281,7 +294,7 @@ export async function getAllRewardRecipients(): Promise<`0x${string}`[]> {
     wallets.add(PLATFORM_WALLET);
   }
 
-  for (const row of results) {
+  for (const row of [...claimedResults, ...unclaimedResults]) {
     if (row.walletAddress) {
       wallets.add(row.walletAddress as `0x${string}`);
     }

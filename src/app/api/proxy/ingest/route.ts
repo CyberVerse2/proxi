@@ -45,7 +45,6 @@ export async function POST(request: Request) {
     } catch { /* fall back to handle */ }
 
     proxy = await createProxy({
-      creatorId: user.id,
       xHandle,
       displayName,
       avatarUrl,
@@ -60,6 +59,7 @@ export async function POST(request: Request) {
       proxyId: proxy.id,
       xHandle,
       maxTweets: 500,
+      walletAddress: user.walletAddress ?? undefined,
     });
 
     return NextResponse.json({ runId: handle.id, proxyId: proxy.id });

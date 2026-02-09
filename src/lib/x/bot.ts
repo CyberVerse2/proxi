@@ -100,13 +100,12 @@ export async function handleCreateMention(
 
   // Step 2: Create Privy user with embedded wallet (server-side)
   let walletAddress: string | undefined;
-  let dbUserId: string | undefined;
   try {
     const privyResult = await createUserWithWallet(authorHandle, xUser.id);
     walletAddress = privyResult.walletAddress;
 
-    // Step 3: Create / update DB user record
-    const dbUser = await upsertUser({
+    // Step 3: Create / update DB user record (wallet ready for token deployment)
+    await upsertUser({
       privyId: privyResult.privyId,
       walletAddress: privyResult.walletAddress,
       xHandle: authorHandle,
@@ -114,7 +113,6 @@ export async function handleCreateMention(
       xProfileImageUrl: xUser.profile_image_url?.replace("_normal", "_400x400"),
       bio: xUser.description,
     });
-    dbUserId = dbUser.id;
 
     console.log(
       `[bot] Created Privy user + wallet for @${authorHandle}: ${walletAddress}`,
@@ -127,9 +125,8 @@ export async function handleCreateMention(
     );
   }
 
-  // Step 4: Create proxy record (linked to user if we have one)
+  // Step 4: Create proxy record (unclaimed — creatorId is set when user claims)
   const proxy = await createProxy({
-    creatorId: dbUserId,
     xHandle: authorHandle,
     displayName: xUser.name,
     avatarUrl: xUser.profile_image_url?.replace("_normal", "_400x400"),
