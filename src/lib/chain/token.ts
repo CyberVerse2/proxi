@@ -4,51 +4,53 @@
  * https://clanker.gitbook.io/clanker-documentation/sdk/v4.0.0
  */
 
-import { Clanker } from "clanker-sdk/v4";
+import { Clanker } from 'clanker-sdk/v4';
+import { createWalletClient, createPublicClient, http, encodeFunctionData, parseAbi } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { base } from 'viem/chains';
+import { db } from '@/lib/db';
+import { proxyTokens, proxies, users } from '@/lib/db/schema';
+import { eq, and, isNotNull, isNull, sql } from 'drizzle-orm';
 import {
-  createWalletClient,
-  createPublicClient,
-  http,
-} from "viem";
-import { privateKeyToAccount } from "viem/accounts";
-import { base } from "viem/chains";
-import { db } from "@/lib/db";
-import { proxyTokens, proxies, users } from "@/lib/db/schema";
-import { eq, and, isNotNull, isNull, sql } from "drizzle-orm";
+  USDC_DECIMALS,
+  USDC_ADDRESS,
+  SLIPPAGE_BPS,
+  BASE_CHAIN_ID,
+  ZX_API_BASE
+} from '@/lib/config/constants';
+import { getWalletIdByAddress, sendTransactionViaPrivy } from '@/lib/auth/privy';
 
 /* ────────────────────────────────────────────────────────── */
 /*  Deployer wallet setup                                     */
 /* ────────────────────────────────────────────────────────── */
 
-const DEPLOYER_PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY as
-  | `0x${string}`
-  | undefined;
+const DEPLOYER_PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY as `0x${string}` | undefined;
 
 const PLATFORM_WALLET = process.env.PLATFORM_WALLET_ADDRESS as `0x${string}`;
 
-const RPC_URL =
-  process.env.NEXT_PUBLIC_BASE_RPC_URL ?? "https://mainnet.base.org";
+const RPC_URL = process.env.NEXT_PUBLIC_BASE_RPC_URL ?? 'https://mainnet.base.org';
 
 function getClankerClient() {
   if (!DEPLOYER_PRIVATE_KEY) {
-    throw new Error(
-      "DEPLOYER_PRIVATE_KEY not configured. Add it to your .env file."
-    );
+    throw new Error('DEPLOYER_PRIVATE_KEY not configured. Add it to your .env file.');
   }
 
   const account = privateKeyToAccount(DEPLOYER_PRIVATE_KEY);
   const publicClient = createPublicClient({
     chain: base,
-    transport: http(RPC_URL),
+    transport: http(RPC_URL)
   });
   const wallet = createWalletClient({
     account,
     chain: base,
-    transport: http(RPC_URL),
+    transport: http(RPC_URL)
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- viem minor version mismatch with SDK
-  return { clanker: new Clanker({ publicClient: publicClient as any, wallet: wallet as any }), account };
+  return {
+    clanker: new Clanker({ publicClient: publicClient as any, wallet: wallet as any }),
+    account
+  };
 }
 
 /* ────────────────────────────────────────────────────────── */
@@ -81,11 +83,8 @@ interface TokenDeployResult {
  *  - rewards admin   = deployer wallet (can redirect reward recipients)
  *  - rewards recipient = creator wallet (earns LP fees)
  */
-export async function deployProxyToken(
-  params: DeployTokenParams
-): Promise<TokenDeployResult> {
-  const { name, symbol, proxyId, creatorAddress, imageUrl, description } =
-    params;
+export async function deployProxyToken(params: DeployTokenParams): Promise<TokenDeployResult> {
+  const { name, symbol, proxyId, creatorAddress, imageUrl, description } = params;
 
   const { clanker, account } = getClankerClient();
   const deployerAddress = account.address;
@@ -93,13 +92,13 @@ export async function deployProxyToken(
   const { txHash, waitForTransaction, error } = await clanker.deploy({
     name,
     symbol,
-    image: imageUrl ?? "",
+    image: imageUrl ?? '',
     tokenAdmin: deployerAddress,
     metadata: {
-      description: description ?? `Digital clone of ${name}. Chat with me at proxi.fun`,
+      description: description ?? `Digital clone of ${name}. Chat with me at proxi.fun`
     },
     context: {
-      interface: "Proxi",
+      interface: 'Proxi'
     },
     rewards: {
       recipients: [
@@ -107,27 +106,27 @@ export async function deployProxyToken(
           admin: deployerAddress,
           recipient: creatorAddress as `0x${string}`, // Creator — 50%
           bps: 5000,
-          token: "Both",
+          token: 'Both'
         },
         {
           admin: deployerAddress,
           recipient: PLATFORM_WALLET, // Proxi treasury — 50%
           bps: 5000,
-          token: "Both",
-        },
-      ],
+          token: 'Both'
+        }
+      ]
     },
     fees: {
-      type: "static",
+      type: 'static',
       clankerFee: 100, // 1% in bps
-      pairedFee: 100, // 1% in bps
+      pairedFee: 100 // 1% in bps
     },
     vault: {
       percentage: 30, // 30% of total supply
       lockupDuration: 15_552_000, // 6 months (180 days in seconds)
       vestingDuration: 15_552_000, // linear vesting over the full lockup period
-      recipient: creatorAddress as `0x${string}`, // Creator receives the vaulted tokens
-    },
+      recipient: creatorAddress as `0x${string}` // Creator receives the vaulted tokens
+    }
   });
 
   if (error) {
@@ -135,15 +134,13 @@ export async function deployProxyToken(
   }
 
   if (!txHash || !waitForTransaction) {
-    throw new Error("Clanker deployment failed: no transaction returned");
+    throw new Error('Clanker deployment failed: no transaction returned');
   }
 
   // Wait for on-chain confirmation
   const txResult = await waitForTransaction();
   if (txResult.error) {
-    throw new Error(
-      `Clanker tx confirmation failed: ${txResult.error.message}`
-    );
+    throw new Error(`Clanker tx confirmation failed: ${txResult.error.message}`);
   }
 
   const tokenAddress = txResult.address;
@@ -152,8 +149,8 @@ export async function deployProxyToken(
   await db.insert(proxyTokens).values({
     proxyId,
     tokenAddress,
-    chain: "base",
-    metadata: { txHash, deployerAddress },
+    chain: 'base',
+    metadata: { txHash, deployerAddress }
   });
 
   // Update proxy record (save token address + ticker)
@@ -167,7 +164,7 @@ export async function deployProxyToken(
     ticker: symbol,
     txHash,
     success: true,
-    chain: "base",
+    chain: 'base'
   };
 }
 
@@ -176,52 +173,48 @@ export async function deployProxyToken(
 /* ────────────────────────────────────────────────────────── */
 
 /** ClankerFeeLocker on Base mainnet (v4) */
-const FEE_LOCKER_ADDRESS =
-  "0xF3622742b1E446D92e45E22923Ef11C2fcD55D68" as const;
+const FEE_LOCKER_ADDRESS = '0xF3622742b1E446D92e45E22923Ef11C2fcD55D68' as const;
 
 /** Wrapped ETH on Base */
-const WETH_ADDRESS =
-  "0x4200000000000000000000000000000000000006" as const;
+const WETH_ADDRESS = '0x4200000000000000000000000000000000000006' as const;
 
 const FEE_LOCKER_ABI = [
   {
-    name: "claim",
-    type: "function",
-    stateMutability: "nonpayable",
+    name: 'claim',
+    type: 'function',
+    stateMutability: 'nonpayable',
     inputs: [
-      { name: "feeOwner", type: "address" },
-      { name: "token", type: "address" },
+      { name: 'feeOwner', type: 'address' },
+      { name: 'token', type: 'address' }
     ],
-    outputs: [],
+    outputs: []
   },
   {
-    name: "availableFees",
-    type: "function",
-    stateMutability: "view",
+    name: 'availableFees',
+    type: 'function',
+    stateMutability: 'view',
     inputs: [
-      { name: "feeOwner", type: "address" },
-      { name: "token", type: "address" },
+      { name: 'feeOwner', type: 'address' },
+      { name: 'token', type: 'address' }
     ],
-    outputs: [{ name: "", type: "uint256" }],
-  },
+    outputs: [{ name: '', type: 'uint256' }]
+  }
 ] as const;
 
 /**
  * Check available WETH fees for a given reward recipient address.
  */
-export async function getAvailableWethFees(
-  feeOwner: `0x${string}`,
-): Promise<bigint> {
+export async function getAvailableWethFees(feeOwner: `0x${string}`): Promise<bigint> {
   const publicClient = createPublicClient({
     chain: base,
-    transport: http(RPC_URL),
+    transport: http(RPC_URL)
   });
 
   return publicClient.readContract({
     address: FEE_LOCKER_ADDRESS,
     abi: FEE_LOCKER_ABI,
-    functionName: "availableFees",
-    args: [feeOwner, WETH_ADDRESS],
+    functionName: 'availableFees',
+    args: [feeOwner, WETH_ADDRESS]
   });
 }
 
@@ -231,7 +224,7 @@ export async function getAvailableWethFees(
  * Returns the tx hash, or null if no fees available.
  */
 export async function claimWethFees(
-  feeOwner: `0x${string}`,
+  feeOwner: `0x${string}`
 ): Promise<{ txHash: string; amount: bigint } | null> {
   const available = await getAvailableWethFees(feeOwner);
 
@@ -241,21 +234,21 @@ export async function claimWethFees(
   }
 
   if (!DEPLOYER_PRIVATE_KEY) {
-    throw new Error("DEPLOYER_PRIVATE_KEY not configured");
+    throw new Error('DEPLOYER_PRIVATE_KEY not configured');
   }
 
   const account = privateKeyToAccount(DEPLOYER_PRIVATE_KEY);
   const walletClient = createWalletClient({
     account,
     chain: base,
-    transport: http(RPC_URL),
+    transport: http(RPC_URL)
   });
 
   const txHash = await walletClient.writeContract({
     address: FEE_LOCKER_ADDRESS,
     abi: FEE_LOCKER_ABI,
-    functionName: "claim",
-    args: [feeOwner, WETH_ADDRESS],
+    functionName: 'claim',
+    args: [feeOwner, WETH_ADDRESS]
   });
 
   return { txHash, amount: available };
@@ -270,7 +263,7 @@ export async function getAllRewardRecipients(): Promise<`0x${string}`[]> {
   // Claimed proxies: join on creatorId
   const claimedResults = await db
     .select({
-      walletAddress: users.walletAddress,
+      walletAddress: users.walletAddress
     })
     .from(proxies)
     .innerJoin(users, eq(proxies.creatorId, users.id))
@@ -279,13 +272,11 @@ export async function getAllRewardRecipients(): Promise<`0x${string}`[]> {
   // Unclaimed proxies: match users by xHandle
   const unclaimedResults = await db
     .select({
-      walletAddress: users.walletAddress,
+      walletAddress: users.walletAddress
     })
     .from(proxies)
     .innerJoin(users, sql`lower(${users.xHandle}) = lower(${proxies.xHandle})`)
-    .where(
-      and(isNotNull(proxies.tokenAddress), isNull(proxies.creatorId))
-    );
+    .where(and(isNotNull(proxies.tokenAddress), isNull(proxies.creatorId)));
 
   const wallets = new Set<`0x${string}`>();
 
@@ -307,7 +298,7 @@ export async function getAllRewardRecipients(): Promise<`0x${string}`[]> {
 /*  Total fee earnings (claimed + unclaimed)                   */
 /* ────────────────────────────────────────────────────────── */
 
-const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY ?? "";
+const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY ?? '';
 
 export interface FeeBreakdown {
   /** Already claimed WETH (wei) */
@@ -327,17 +318,17 @@ export interface FeeBreakdown {
  */
 export async function getTotalWethFees(
   tokenAddress: string,
-  feeRecipient: `0x${string}`,
+  feeRecipient: `0x${string}`
 ): Promise<FeeBreakdown> {
   const [unclaimed, claimed] = await Promise.all([
     getAvailableWethFees(feeRecipient).catch(() => 0n),
-    fetchClaimedWethFromAlchemy(feeRecipient).catch(() => 0n),
+    fetchClaimedWethFromAlchemy(feeRecipient).catch(() => 0n)
   ]);
 
   return {
     claimed,
     unclaimed,
-    total: claimed + unclaimed,
+    total: claimed + unclaimed
   };
 }
 
@@ -345,33 +336,31 @@ export async function getTotalWethFees(
  * Sum all WETH transfers from the ClankerFeeLocker to a recipient.
  * Uses Alchemy's `alchemy_getAssetTransfers` on Base mainnet.
  */
-async function fetchClaimedWethFromAlchemy(
-  recipient: `0x${string}`,
-): Promise<bigint> {
+async function fetchClaimedWethFromAlchemy(recipient: `0x${string}`): Promise<bigint> {
   if (!ALCHEMY_API_KEY) return 0n;
 
   const url = `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
 
   const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      jsonrpc: "2.0",
+      jsonrpc: '2.0',
       id: 1,
-      method: "alchemy_getAssetTransfers",
+      method: 'alchemy_getAssetTransfers',
       params: [
         {
           fromAddress: FEE_LOCKER_ADDRESS,
           toAddress: recipient,
           contractAddresses: [WETH_ADDRESS],
-          category: ["erc20"],
+          category: ['erc20'],
           excludeZeroValue: true,
-          order: "desc",
-          withMetadata: false,
-        },
-      ],
+          order: 'desc',
+          withMetadata: false
+        }
+      ]
     }),
-    next: { revalidate: 300 }, // cache for 5 min
+    next: { revalidate: 300 } // cache for 5 min
   });
 
   if (!res.ok) return 0n;
@@ -425,28 +414,23 @@ export interface TokenMarketData {
  * Uses Alchemy for metadata + price, DexScreener for DEX-specific data
  * (volume, liquidity, pair info), and Alchemy Prices API for history.
  */
-export async function getTokenMarketData(
-  tokenAddress: string,
-): Promise<TokenMarketData> {
+export async function getTokenMarketData(tokenAddress: string): Promise<TokenMarketData> {
   const [metadata, alchemyPrice, dexData, priceHistory] = await Promise.all([
     fetchAlchemyTokenMetadata(tokenAddress).catch(() => null),
     fetchAlchemyTokenPrice(tokenAddress).catch(() => null),
     fetchDexScreenerData(tokenAddress).catch(() => null),
-    fetchAlchemyPriceHistory(tokenAddress).catch(() => []),
+    fetchAlchemyPriceHistory(tokenAddress).catch(() => [])
   ]);
 
   // Prefer Alchemy price, fall back to DexScreener
-  const priceUsd =
-    alchemyPrice ?? (dexData?.priceUsd ? parseFloat(dexData.priceUsd) : 0);
+  const priceUsd = alchemyPrice ?? (dexData?.priceUsd ? parseFloat(dexData.priceUsd) : 0);
 
   return {
     name: metadata?.name ?? dexData?.name ?? null,
     symbol: metadata?.symbol ?? dexData?.symbol ?? null,
     decimals: metadata?.decimals ?? null,
     logo: metadata?.logo ?? dexData?.imageUrl ?? null,
-    totalSupply: dexData?.fdv && priceUsd > 0
-      ? String(Math.round(dexData.fdv / priceUsd))
-      : null,
+    totalSupply: dexData?.fdv && priceUsd > 0 ? String(Math.round(dexData.fdv / priceUsd)) : null,
 
     priceUsd,
     priceChange24h: dexData?.priceChange24h ?? 0,
@@ -457,7 +441,7 @@ export async function getTokenMarketData(
     pairAddress: dexData?.pairAddress ?? null,
     dexUrl: dexData?.dexUrl ?? null,
 
-    priceHistory,
+    priceHistory
   };
 }
 
@@ -466,20 +450,17 @@ export async function getTokenMarketData(
 async function fetchAlchemyTokenMetadata(tokenAddress: string) {
   if (!ALCHEMY_API_KEY) return null;
 
-  const res = await fetch(
-    `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "alchemy_getTokenMetadata",
-        params: [tokenAddress],
-      }),
-      next: { revalidate: 3600 }, // cache 1 hour — metadata rarely changes
-    },
-  );
+  const res = await fetch(`https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'alchemy_getTokenMetadata',
+      params: [tokenAddress]
+    }),
+    next: { revalidate: 3600 } // cache 1 hour — metadata rarely changes
+  });
 
   if (!res.ok) return null;
   const data = await res.json();
@@ -493,21 +474,19 @@ async function fetchAlchemyTokenMetadata(tokenAddress: string) {
 
 /* ─── Alchemy: Token Price by Address ─── */
 
-async function fetchAlchemyTokenPrice(
-  tokenAddress: string,
-): Promise<number | null> {
+async function fetchAlchemyTokenPrice(tokenAddress: string): Promise<number | null> {
   if (!ALCHEMY_API_KEY) return null;
 
   const res = await fetch(
     `https://api.g.alchemy.com/prices/v1/${ALCHEMY_API_KEY}/tokens/by-address`,
     {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        addresses: [{ network: "base-mainnet", address: tokenAddress }],
+        addresses: [{ network: 'base-mainnet', address: tokenAddress }]
       }),
-      next: { revalidate: 60 }, // cache 1 min
-    },
+      next: { revalidate: 60 } // cache 1 min
+    }
   );
 
   if (!res.ok) return null;
@@ -520,7 +499,7 @@ async function fetchAlchemyTokenPrice(
 /* ─── Alchemy: Historical Prices (30 days) ─── */
 
 async function fetchAlchemyPriceHistory(
-  tokenAddress: string,
+  tokenAddress: string
 ): Promise<{ timestamp: number; price: number }[]> {
   if (!ALCHEMY_API_KEY) return [];
 
@@ -530,18 +509,18 @@ async function fetchAlchemyPriceHistory(
   const res = await fetch(
     `https://api.g.alchemy.com/prices/v1/${ALCHEMY_API_KEY}/tokens/historical`,
     {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         symbol: undefined,
         address: tokenAddress,
-        network: "base-mainnet",
+        network: 'base-mainnet',
         startTime,
         endTime,
-        interval: "1d",
+        interval: '1d'
       }),
-      next: { revalidate: 3600 }, // cache 1 hour
-    },
+      next: { revalidate: 3600 } // cache 1 hour
+    }
   );
 
   if (!res.ok) return [];
@@ -554,17 +533,16 @@ async function fetchAlchemyPriceHistory(
     .filter((p: { value?: string; timestamp?: string }) => p.value && p.timestamp)
     .map((p: { value: string; timestamp: string }) => ({
       timestamp: new Date(p.timestamp).getTime(),
-      price: parseFloat(p.value),
+      price: parseFloat(p.value)
     }));
 }
 
 /* ─── DexScreener: DEX-specific data ─── */
 
 async function fetchDexScreenerData(tokenAddress: string) {
-  const res = await fetch(
-    `https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`,
-    { next: { revalidate: 60 } },
-  );
+  const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`, {
+    next: { revalidate: 60 }
+  });
   if (!res.ok) return null;
 
   const data = await res.json();
@@ -582,8 +560,131 @@ async function fetchDexScreenerData(tokenAddress: string) {
     volume24h: pair.volume?.h24 ? parseFloat(pair.volume.h24) : 0,
     liquidity: pair.liquidity?.usd ? parseFloat(pair.liquidity.usd) : 0,
     pairAddress: pair.pairAddress as string | undefined,
-    dexUrl: pair.url as string | undefined,
+    dexUrl: pair.url as string | undefined
   };
+}
+
+/* ────────────────────────────────────────────────────────── */
+/*  Tokens-per-message pricing (0x price API)                 */
+/* ────────────────────────────────────────────────────────── */
+
+const ZX_API_KEY = process.env['0X_API_KEY'] ?? '';
+
+/**
+ * Call 0x price API to find how many tokens the proxy's chat price buys (= 1 message).
+ * Returns the human-readable token amount (e.g. 1234.56 tokens).
+ */
+export async function getTokensPerMessage(
+  tokenAddress: string,
+  pricePerMessage: number
+): Promise<number> {
+  if (!ZX_API_KEY) return 0;
+  try {
+    const sellAmount = BigInt(Math.round(pricePerMessage * 10 ** USDC_DECIMALS)).toString();
+    const params = new URLSearchParams({
+      chainId: String(BASE_CHAIN_ID),
+      sellToken: USDC_ADDRESS,
+      buyToken: tokenAddress,
+      sellAmount,
+      slippageBps: SLIPPAGE_BPS
+    });
+    const url = `${ZX_API_BASE}/price?${params}`;
+    const res = await fetch(url, {
+      headers: { '0x-api-key': ZX_API_KEY, '0x-version': 'v2' },
+      next: { revalidate: 60 }
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      console.error('[token] 0x price API error:', res.status, errText);
+      return 0;
+    }
+    const data = await res.json();
+    return Number(data.buyAmount) / 1e18;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Same as getTokensPerMessage but returns the raw bigint amount (18 decimals)
+ * suitable for ERC-20 transfer calls.
+ */
+export async function getRawTokensPerMessage(
+  tokenAddress: string,
+  pricePerMessage: number
+): Promise<bigint> {
+  if (!ZX_API_KEY) return 0n;
+  try {
+    const sellAmount = BigInt(Math.round(pricePerMessage * 10 ** USDC_DECIMALS)).toString();
+    const params = new URLSearchParams({
+      chainId: String(BASE_CHAIN_ID),
+      sellToken: USDC_ADDRESS,
+      buyToken: tokenAddress,
+      sellAmount,
+      slippageBps: SLIPPAGE_BPS
+    });
+    const url = `${ZX_API_BASE}/price?${params}`;
+    const res = await fetch(url, {
+      headers: { '0x-api-key': ZX_API_KEY, '0x-version': 'v2' },
+      next: { revalidate: 60 }
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      console.error('[token] 0x price API error:', res.status, errText);
+      return 0n;
+    }
+    const data = await res.json();
+    return BigInt(data.buyAmount ?? '0');
+  } catch {
+    return 0n;
+  }
+}
+
+/* ────────────────────────────────────────────────────────── */
+/*  Server-side token transfer (via Privy embedded wallet)    */
+/* ────────────────────────────────────────────────────────── */
+
+const ERC20_TRANSFER_ABI = parseAbi([
+  'function transfer(address to, uint256 amount) returns (bool)'
+]);
+
+/**
+ * Transfer ERC-20 tokens from a user's Privy embedded wallet to a recipient.
+ * Uses Privy's server-side wallet RPC — no client interaction required.
+ *
+ * @param userWalletAddress  The user's on-chain wallet address
+ * @param tokenAddress       The ERC-20 token contract address
+ * @param amount             Raw token amount (18 decimals)
+ * @param recipient          Destination wallet address
+ * @returns                  The transaction hash
+ */
+export async function transferTokensFromUser(
+  userWalletAddress: string,
+  tokenAddress: string,
+  amount: bigint,
+  recipient: string
+): Promise<{ hash: string }> {
+  // 1. Look up the Privy wallet ID
+  const walletId = await getWalletIdByAddress(userWalletAddress);
+  if (!walletId) {
+    throw new Error(`Could not find Privy wallet for address ${userWalletAddress}`);
+  }
+
+  // 2. Encode the ERC-20 transfer call
+  const transferData = encodeFunctionData({
+    abi: ERC20_TRANSFER_ABI,
+    functionName: 'transfer',
+    args: [recipient as `0x${string}`, amount]
+  });
+
+  // 3. Send via Privy server-side RPC
+  const result = await sendTransactionViaPrivy(walletId, tokenAddress, transferData);
+
+  if ('error' in result) {
+    throw new Error(result.error);
+  }
+
+  return { hash: result.hash };
 }
 
 /* ─── Legacy helpers (kept for backward compat) ─── */
@@ -604,12 +705,12 @@ export async function getTokenMarketCap(tokenAddress: string): Promise<number> {
 
 const ERC20_BALANCE_ABI = [
   {
-    inputs: [{ name: "account", type: "address" }],
-    name: "balanceOf",
-    outputs: [{ name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
+    inputs: [{ name: 'account', type: 'address' }],
+    name: 'balanceOf',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function'
+  }
 ] as const;
 
 /**
@@ -617,17 +718,17 @@ const ERC20_BALANCE_ABI = [
  */
 export async function getOnChainTokenBalance(
   tokenAddress: `0x${string}`,
-  walletAddress: `0x${string}`,
+  walletAddress: `0x${string}`
 ): Promise<bigint> {
   const client = createPublicClient({
     chain: base,
-    transport: http(RPC_URL),
+    transport: http(RPC_URL)
   });
 
   return client.readContract({
     address: tokenAddress,
     abi: ERC20_BALANCE_ABI,
-    functionName: "balanceOf",
-    args: [walletAddress],
+    functionName: 'balanceOf',
+    args: [walletAddress]
   });
 }

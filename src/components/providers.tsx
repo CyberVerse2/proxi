@@ -13,7 +13,7 @@ function PrivyWrapper({ children }: { children: React.ReactNode }) {
       appId={appId}
       config={{
         appearance: { theme: "dark", accentColor: "#BFFF00" },
-        loginMethods: ["twitter", "wallet"],
+        loginMethods: ["twitter"],
         defaultChain: base,
         supportedChains: [base],
         embeddedWallets: { ethereum: { createOnLogin: "users-without-wallets" } },

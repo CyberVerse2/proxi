@@ -1,61 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
-import {
-  getProxyByHandle,
-  getUserByPrivyId,
-  getUserProxyMessageCount,
-} from "@/lib/db/queries";
-import { getOnChainTokenBalance } from "@/lib/chain/token";
-import { getPrivyWalletAddress } from "@/lib/auth/privy";
-import { formatUnits } from "viem";
-import {
-  FREE_MESSAGES_PER_PROXY,
-  MESSAGE_PRICE_USD,
-  USDC_DECIMALS,
-  USDC_ADDRESS,
-  SLIPPAGE_BPS,
-  BASE_CHAIN_ID,
-  ZX_API_BASE,
-} from "@/lib/config/constants";
-
-const ZX_API_KEY = process.env["0X_API_KEY"] ?? "";
-
-/**
- * Call 0x price API to find how many tokens the proxy's chat price buys (= 1 message).
- * Returns raw token amount (18 decimals) as a bigint-friendly number.
- */
-async function getTokensPerMessage(
-  tokenAddress: string,
-  pricePerMessage: number,
-): Promise<number> {
-  if (!ZX_API_KEY) return 0;
-  try {
-    const sellAmount = BigInt(
-      Math.round(pricePerMessage * 10 ** USDC_DECIMALS),
-    ).toString();
-    const params = new URLSearchParams({
-      chainId: String(BASE_CHAIN_ID),
-      sellToken: USDC_ADDRESS,
-      buyToken: tokenAddress,
-      sellAmount,
-      slippageBps: SLIPPAGE_BPS,
-    });
-    const url = `${ZX_API_BASE}/price?${params}`;
-    const res = await fetch(url, {
-      headers: { "0x-api-key": ZX_API_KEY, "0x-version": "v2" },
-      next: { revalidate: 60 },
-    });
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      console.error("[credits] 0x price API error:", res.status, errText);
-      return 0;
-    }
-    const data = await res.json();
-    console.log("[credits] tokensPerMessage raw buyAmount:", data.buyAmount);
-    return Number(data.buyAmount) / 1e18;
-  } catch {
-    return 0;
-  }
-}
+import { NextRequest, NextResponse } from 'next/server';
+import { getProxyByHandle, getUserByPrivyId, getUserProxyMessageCount } from '@/lib/db/queries';
+import { getOnChainTokenBalance, getTokensPerMessage } from '@/lib/chain/token';
+import { getPrivyWalletAddress } from '@/lib/auth/privy';
+import { formatUnits } from 'viem';
+import { FREE_MESSAGES_PER_PROXY, MESSAGE_PRICE_USD } from '@/lib/config/constants';
 
 /**
  * GET /api/chat/credits?proxyHandle=X&privyId=Y
@@ -65,19 +13,16 @@ async function getTokensPerMessage(
  */
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
-  const proxyHandle = searchParams.get("proxyHandle");
-  const privyId = searchParams.get("privyId");
+  const proxyHandle = searchParams.get('proxyHandle');
+  const privyId = searchParams.get('privyId');
 
   if (!proxyHandle) {
-    return NextResponse.json(
-      { error: "Missing proxyHandle" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: 'Missing proxyHandle' }, { status: 400 });
   }
 
   const proxy = await getProxyByHandle(proxyHandle);
   if (!proxy) {
-    return NextResponse.json({ error: "Proxy not found" }, { status: 404 });
+    return NextResponse.json({ error: 'Proxy not found' }, { status: 404 });
   }
 
   // Per-proxy message price (creator-configured, falls back to global default)
@@ -92,7 +37,7 @@ export async function GET(request: NextRequest) {
       hasTokens: true,
       messagesOwned: 0,
       unlimited: true,
-      messagePriceUsd,
+      messagePriceUsd
     });
   }
 
@@ -105,7 +50,7 @@ export async function GET(request: NextRequest) {
       hasTokens: false,
       messagesOwned: 0,
       unlimited: false,
-      messagePriceUsd,
+      messagePriceUsd
     });
   }
 
@@ -118,7 +63,7 @@ export async function GET(request: NextRequest) {
       hasTokens: false,
       messagesOwned: 0,
       unlimited: false,
-      messagePriceUsd,
+      messagePriceUsd
     });
   }
 
@@ -134,11 +79,8 @@ export async function GET(request: NextRequest) {
   if (walletAddress) {
     try {
       const [balance, tokensPerMsg] = await Promise.all([
-        getOnChainTokenBalance(
-          proxy.tokenAddress as `0x${string}`,
-          walletAddress as `0x${string}`,
-        ),
-        getTokensPerMessage(proxy.tokenAddress, messagePriceUsd),
+        getOnChainTokenBalance(proxy.tokenAddress as `0x${string}`, walletAddress as `0x${string}`),
+        getTokensPerMessage(proxy.tokenAddress, messagePriceUsd)
       ]);
       hasTokens = balance > 0n;
       if (tokensPerMsg > 0) {
@@ -157,6 +99,6 @@ export async function GET(request: NextRequest) {
     hasTokens,
     messagesOwned,
     unlimited: false,
-    messagePriceUsd,
+    messagePriceUsd
   });
 }

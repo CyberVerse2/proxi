@@ -7,7 +7,11 @@ import { useChat } from '@/hooks/use-chat';
 import { useAuth } from '@/hooks/use-auth';
 import Image from 'next/image';
 import { ReviewModal } from './review-modal';
-import { DEFAULT_AVATAR, FREE_MESSAGES_PER_PROXY, LOW_MESSAGE_THRESHOLD } from '@/lib/config/constants';
+import {
+  DEFAULT_AVATAR,
+  FREE_MESSAGES_PER_PROXY,
+  LOW_MESSAGE_THRESHOLD
+} from '@/lib/config/constants';
 
 interface ChatClientProps {
   handle: string;
@@ -26,7 +30,7 @@ export function ChatClient({
   bio,
   conversationId: externalConvoId,
   onConversationChange,
-  onMessageComplete,
+  onMessageComplete
 }: ChatClientProps) {
   const { user, xHandle, xProfileImageUrl } = useAuth();
   const {
@@ -38,10 +42,10 @@ export function ChatClient({
     setPaymentRequired,
     conversationId: hookConvoId,
     loadConversation,
-    resetChat,
+    resetChat
   } = useChat({
     proxyHandle: handle,
-    privyId: user?.id ?? null,
+    privyId: user?.id ?? null
   });
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -60,7 +64,7 @@ export function ChatClient({
   // Fetch credits on mount, after each message, and on window focus (e.g. returning from buying tokens)
   const fetchCredits = useCallback(() => {
     const params = new URLSearchParams({ proxyHandle: handle });
-    if (user?.id) params.set("privyId", user.id);
+    if (user?.id) params.set('privyId', user.id);
     fetch(`/api/chat/credits?${params}`)
       .then((r) => r.json())
       .then((data) => {
@@ -80,8 +84,8 @@ export function ChatClient({
   // Re-check credits when user returns to the tab (e.g. after buying tokens)
   useEffect(() => {
     const onFocus = () => fetchCredits();
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
   }, [fetchCredits]);
 
   // Review modal state
@@ -92,7 +96,9 @@ export function ChatClient({
   // Check if user already reviewed this proxy
   useEffect(() => {
     if (!user?.id) return;
-    fetch(`/api/reviews?handle=${encodeURIComponent(handle)}&privyId=${encodeURIComponent(user.id)}`)
+    fetch(
+      `/api/reviews?handle=${encodeURIComponent(handle)}&privyId=${encodeURIComponent(user.id)}`
+    )
       .then((r) => r.json())
       .then((data) => {
         if (data.hasReviewed) setHasReviewed(true);
@@ -232,34 +238,52 @@ export function ChatClient({
             {bio && (
               <p className="text-white/60 text-sm mt-1 max-w-[380px] mx-auto line-clamp-1">{bio}</p>
             )}
-            {credits && !credits.unlimited && (() => {
-              // Token holder — always show count, highlight when running low
-              if (credits.hasTokens) {
-                const isLow = credits.messagesOwned < LOW_MESSAGE_THRESHOLD;
-                return (
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className={`text-xs ${isLow ? 'text-yellow-400/60' : 'text-white/40'}`}>
-                      {credits.messagesOwned.toLocaleString()} message{credits.messagesOwned !== 1 ? 's' : ''} remaining
-                    </span>
-                    {isLow && (
+            {credits &&
+              !credits.unlimited &&
+              (() => {
+                // Token holder — always show count, highlight when running low
+                if (credits.hasTokens) {
+                  const isLow = credits.messagesOwned < LOW_MESSAGE_THRESHOLD;
+                  return (
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className={`text-xs ${isLow ? 'text-yellow-400/60' : 'text-white/40'}`}>
+                        {credits.messagesOwned.toLocaleString()} message
+                        {credits.messagesOwned !== 1 ? 's' : ''} remaining
+                      </span>
+                      {isLow && (
+                        <Link
+                          href={`/${handle}#trade`}
+                          className="text-[11px] font-semibold text-black bg-lime rounded-full px-2.5 py-0.5 hover:bg-lime/90 transition-colors"
+                        >
+                          Buy
+                        </Link>
+                      )}
+                    </div>
+                  );
+                }
+
+                // Free messages remaining
+                if (credits.freeRemaining > 0) {
+                  return (
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-white/30 text-xs">
+                        {credits.freeRemaining} free message{credits.freeRemaining !== 1 ? 's' : ''}{' '}
+                        remaining
+                      </span>
                       <Link
                         href={`/${handle}#trade`}
                         className="text-[11px] font-semibold text-black bg-lime rounded-full px-2.5 py-0.5 hover:bg-lime/90 transition-colors"
                       >
                         Buy
                       </Link>
-                    )}
-                  </div>
-                );
-              }
+                    </div>
+                  );
+                }
 
-              // Free messages remaining
-              if (credits.freeRemaining > 0) {
+                // Out of free messages, no tokens
                 return (
                   <div className="flex items-center gap-2 mt-2">
-                    <span className="text-white/30 text-xs">
-                      {credits.freeRemaining} free message{credits.freeRemaining !== 1 ? 's' : ''} remaining
-                    </span>
+                    <span className="text-yellow-400/60 text-xs">0 messages remaining</span>
                     <Link
                       href={`/${handle}#trade`}
                       className="text-[11px] font-semibold text-black bg-lime rounded-full px-2.5 py-0.5 hover:bg-lime/90 transition-colors"
@@ -268,23 +292,7 @@ export function ChatClient({
                     </Link>
                   </div>
                 );
-              }
-
-              // Out of free messages, no tokens
-              return (
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-yellow-400/60 text-xs">
-                    0 messages remaining
-                  </span>
-                  <Link
-                    href={`/${handle}#trade`}
-                    className="text-[11px] font-semibold text-black bg-lime rounded-full px-2.5 py-0.5 hover:bg-lime/90 transition-colors"
-                  >
-                    Buy
-                  </Link>
-                </div>
-              );
-            })()}
+              })()}
           </div>
 
           {/* Scroll-to-bottom FAB */}
@@ -388,9 +396,11 @@ export function ChatClient({
                 <div className="flex items-center gap-2 text-yellow-400 text-sm font-medium">
                   <Coins size={16} />
                   <span>
-                    {paymentRequired === "insufficient_tokens"
-                      ? `You've used your ${FREE_MESSAGES_PER_PROXY} free messages. Hold tokens to keep chatting.`
-                      : "Connect a wallet to continue chatting."}
+                    {paymentRequired === 'insufficient_tokens'
+                      ? `You've used your ${FREE_MESSAGES_PER_PROXY} free messages. Buy tokens to keep chatting.`
+                      : paymentRequired === 'payment_failed'
+                        ? 'Payment failed. Please ensure you have enough tokens and ETH for gas, then try again.'
+                        : 'Connect a wallet to continue chatting.'}
                   </span>
                 </div>
                 <Link

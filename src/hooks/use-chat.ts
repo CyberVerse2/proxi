@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef } from 'react';
 
 export interface ChatMessage {
   id: string;
-  role: "user" | "assistant";
+  role: 'user' | 'assistant';
   content: string;
   createdAt: Date;
 }
 
-export type PaymentError = "insufficient_tokens" | "wallet_required" | null;
+export type PaymentError = 'insufficient_tokens' | 'wallet_required' | 'payment_failed' | null;
 
 interface UseChatOptions {
   proxyHandle: string;
@@ -32,9 +32,9 @@ export function useChat({ proxyHandle, privyId }: UseChatOptions) {
       setPaymentRequired(null);
       const userMsg: ChatMessage = {
         id: crypto.randomUUID(),
-        role: "user",
+        role: 'user',
         content,
-        createdAt: new Date(),
+        createdAt: new Date()
       };
       setMessages((prev) => [...prev, userMsg]);
       setIsLoading(true);
@@ -42,7 +42,7 @@ export function useChat({ proxyHandle, privyId }: UseChatOptions) {
       const assistantId = crypto.randomUUID();
       setMessages((prev) => [
         ...prev,
-        { id: assistantId, role: "assistant", content: "", createdAt: new Date() },
+        { id: assistantId, role: 'assistant', content: '', createdAt: new Date() }
       ]);
 
       try {
@@ -51,10 +51,10 @@ export function useChat({ proxyHandle, privyId }: UseChatOptions) {
         let activeConvoId = conversationId;
         if (!activeConvoId && privyId) {
           try {
-            const createRes = await fetch("/api/chat", {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ proxyHandle, privyId }),
+            const createRes = await fetch('/api/chat', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ proxyHandle, privyId })
             });
             if (createRes.ok) {
               const data = await createRes.json();
@@ -70,38 +70,39 @@ export function useChat({ proxyHandle, privyId }: UseChatOptions) {
         }
 
         abortRef.current = new AbortController();
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             proxyHandle,
             conversationId: activeConvoId,
             privyId: privyId ?? undefined,
             messages: [...messages, userMsg].map((m) => ({
               role: m.role,
-              content: m.content,
-            })),
+              content: m.content
+            }))
           }),
-          signal: abortRef.current.signal,
+          signal: abortRef.current.signal
         });
 
         if (res.status === 402) {
           const data = await res.json();
-          const errType = data.error === "insufficient_tokens"
-            ? "insufficient_tokens"
-            : "wallet_required";
-          setPaymentRequired(errType as PaymentError);
+          const errType: PaymentError =
+            data.error === 'insufficient_tokens'
+              ? 'insufficient_tokens'
+              : data.error === 'payment_failed'
+                ? 'payment_failed'
+                : 'wallet_required';
+          setPaymentRequired(errType);
           // Remove the optimistic user + empty assistant messages
-          setMessages((prev) => prev.filter(
-            (m) => m.id !== userMsg.id && m.id !== assistantId
-          ));
+          setMessages((prev) => prev.filter((m) => m.id !== userMsg.id && m.id !== assistantId));
           return;
         }
-        if (!res.ok) throw new Error("Failed to send message");
-        if (!res.body) throw new Error("No response body");
+        if (!res.ok) throw new Error('Failed to send message');
+        if (!res.body) throw new Error('No response body');
 
         // Try to capture conversation ID from response header (fallback)
-        const newConvoId = res.headers.get("X-Conversation-Id");
+        const newConvoId = res.headers.get('X-Conversation-Id');
         if (newConvoId && !convoIdRef.current) {
           convoIdRef.current = newConvoId;
           setConversationId(newConvoId);
@@ -109,21 +110,19 @@ export function useChat({ proxyHandle, privyId }: UseChatOptions) {
 
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
-        let accumulated = "";
+        let accumulated = '';
 
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
           accumulated += decoder.decode(value, { stream: true });
           setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId ? { ...m, content: accumulated } : m
-            )
+            prev.map((m) => (m.id === assistantId ? { ...m, content: accumulated } : m))
           );
         }
       } catch (err: unknown) {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        setError(err instanceof Error ? err.message : "Something went wrong");
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        setError(err instanceof Error ? err.message : 'Something went wrong');
         setMessages((prev) => prev.filter((m) => m.id !== assistantId));
       } finally {
         setIsLoading(false);
@@ -147,21 +146,21 @@ export function useChat({ proxyHandle, privyId }: UseChatOptions) {
         const res = await fetch(
           `/api/chat/history/${convoId}?privyId=${encodeURIComponent(privyId)}`
         );
-        if (!res.ok) throw new Error("Failed to load conversation");
+        if (!res.ok) throw new Error('Failed to load conversation');
         const data = await res.json();
         const loaded: ChatMessage[] = (data.messages ?? []).map(
-          (m: { id: string; role: "user" | "assistant"; content: string; createdAt: string }) => ({
+          (m: { id: string; role: 'user' | 'assistant'; content: string; createdAt: string }) => ({
             id: m.id,
             role: m.role,
             content: m.content,
-            createdAt: new Date(m.createdAt),
+            createdAt: new Date(m.createdAt)
           })
         );
         setMessages(loaded);
         setConversationId(convoId);
         convoIdRef.current = convoId;
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Failed to load conversation");
+        setError(err instanceof Error ? err.message : 'Failed to load conversation');
       } finally {
         setIsLoading(false);
       }
@@ -189,6 +188,6 @@ export function useChat({ proxyHandle, privyId }: UseChatOptions) {
     sendMessage,
     stop,
     loadConversation,
-    resetChat,
+    resetChat
   };
 }
