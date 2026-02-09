@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { BadgeCheck, Copy, Star, Brain, Crown, Gem, Info, ExternalLink, Droplets, TrendingUp, MessageSquare, Pencil, Loader2, ArrowLeftRight, DollarSign, Coins, CheckCircle } from 'lucide-react';
+import { BadgeCheck, Copy, Star, Brain, Crown, Gem, Info, ExternalLink, Droplets, TrendingUp, MessageSquare, Pencil, Loader2, ArrowLeftRight, DollarSign, Coins, CheckCircle, X, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -57,7 +57,7 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
   const [copied, setCopied] = useState(false);
 
   // Auth + Swap
-  const { user, walletAddress, login, authenticated, xHandle: authXHandle, xDisplayName: authDisplayName, xProfileImageUrl: authAvatar } = useAuth();
+  const { user, walletAddress, login, authenticated, getAccessToken, xHandle: authXHandle, xDisplayName: authDisplayName, xProfileImageUrl: authAvatar } = useAuth();
   const {
     getPrice,
     executeSwap,
@@ -177,6 +177,45 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
     }
   };
 
+  // Claim proxy state
+  const [showClaimModal, setShowClaimModal] = useState(false);
+  const [claimProxyLoading, setClaimProxyLoading] = useState(false);
+  const [claimProxyResult, setClaimProxyResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
+
+  const handleClaimProxy = async () => {
+    if (!authenticated) {
+      login();
+      return;
+    }
+    if (!getAccessToken) return;
+    setClaimProxyLoading(true);
+    setClaimProxyResult(null);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch('/api/proxy/claim', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ handle: proxy.xHandle }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setClaimProxyResult({ success: false, message: data.error });
+      } else {
+        setClaimProxyResult({ success: true, message: data.message });
+      }
+    } catch {
+      setClaimProxyResult({ success: false, message: 'Failed to claim proxy' });
+    } finally {
+      setClaimProxyLoading(false);
+    }
+  };
+
   const [reviews, setReviews] = useState<ReviewItem[]>(initialReviews);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewScore, setReviewScore] = useState(0);
@@ -242,7 +281,7 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
         {/* ============ Left Column ============ */}
         <div className="flex-1 min-w-0 space-y-6">
           {/* Unclaimed banner */}
-          {!proxy.creatorId && (
+          {!proxy.creatorId && !claimProxyResult?.success && (
             <Card className="bg-lime/5 border-lime/20 flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
                 <Crown size={20} className="text-lime" />
@@ -253,7 +292,17 @@ export function ProxyDetail({ proxy, feeData, tokenData, liveMessageCount = 0, r
                   </p>
                 </div>
               </div>
-              <Button size="sm" className="rounded-lg">
+              <Button
+                size="sm"
+                className="rounded-lg cursor-pointer"
+                onClick={() => {
+                  if (!authenticated) {
+                    login();
+                  } else {
+                    setShowClaimModal(true);
+                  }
+                }}
+              >
                 Claim Proxy
               </Button>
             </Card>

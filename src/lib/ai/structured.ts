@@ -120,7 +120,7 @@ export async function generateStructured<T extends z.ZodType>(opts: {
       maxOutputTokens: opts.maxOutputTokens,
       prompt: opts.prompt,
     });
-    if (output) return output;
+    if (output) return output as z.infer<T>;
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     console.warn(`[structured] Output.object() failed: ${errMsg.slice(0, 200)}`);
