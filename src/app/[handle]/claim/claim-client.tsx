@@ -329,6 +329,9 @@ export function ClaimClient({
               <p className="text-sm text-gray">
                 This proxy can be claimed by @{proxy.xHandle}.
               </p>
+              <p className="text-xs text-gray/50">
+                Logged in as: {xHandle ? `@${xHandle}` : "no X account linked"} | proxy: @{proxy.xHandle}
+              </p>
             </div>
           )}
         </Card>

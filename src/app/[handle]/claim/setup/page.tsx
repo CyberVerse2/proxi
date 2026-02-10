@@ -1238,7 +1238,7 @@ export default function SetupPage() {
       });
 
       if (res.ok && res.body) {
-        // Read the streamed response
+        // Read the streamed response (plain text stream from toTextStreamResponse)
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let fullResponse = "";
@@ -1247,21 +1247,7 @@ export default function SetupPage() {
           const { done, value } = await reader.read();
           if (done) break;
           const chunk = decoder.decode(value, { stream: true });
-          // Parse SSE data events from Vercel AI SDK stream
-          const lines = chunk.split("\n");
-          for (const line of lines) {
-            // Vercel AI SDK sends text as: 0:"text content"
-            if (line.startsWith("0:")) {
-              try {
-                const text = JSON.parse(line.slice(2));
-                if (typeof text === "string") {
-                  fullResponse += text;
-                }
-              } catch {
-                // not parseable, skip
-              }
-            }
-          }
+          fullResponse += chunk;
         }
 
         setChatTyping(false);

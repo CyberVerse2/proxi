@@ -233,17 +233,20 @@ export async function sendCompletionReply(
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://proxi.fun";
 
   const lines = [
-    `@${handle} ✅ Your AI proxy is LIVE!`,
+    `@${handle} ✅ Your proxy is live!`,
     ``,
-    `🔗 Chat: ${appUrl}/${handle}`,
+    'People can now chat with your proxy: ${appUrl}/${handle.toLowerCase()}',
   ];
 
   if (tokenInfo) {
-    lines.push(`💰 Token: $${tokenInfo.ticker}`);
-    lines.push(`🎁 Claim your creator fees: ${appUrl}/${handle}/claim`);
+    // Add Dexscreener link for the token
+    lines.push(
+      `💰 Your proxy token: $${tokenInfo.ticker} — [View chart](https://dexscreener.com/base/${tokenInfo.tokenAddress})`
+    );
+    lines.push(`🎁 Claim your proxy fees: ${appUrl}/${handle.toLowerCase()}/claim`);
   } else {
     lines.push(
-      `People can now chat with your AI clone. Claim your proxy to customize it further.`,
+      `People can now chat with your proxy. Claim your proxy to customize it further.`,
     );
   }
 
