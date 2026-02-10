@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "clone": "tsx scripts/clone.ts",
+    "launch-proxies": "tsx scripts/launch-proxies.ts",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:seed": "tsx scripts/seed-categories.ts"

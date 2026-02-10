@@ -301,6 +301,10 @@ async function main() {
     if (maxTweets) payload.maxTweets = maxTweets;
     console.log(`   Token deployment enabled (wallet: ${walletAddress})`);
 
+    if (!process.env.INNGEST_EVENT_KEY && process.env.NODE_ENV !== "production") {
+      console.log("   ⚠️  No INNGEST_EVENT_KEY in dev — run `npx inngest dev` so events are received locally.");
+    }
+
     await inngest.send({
       name: "proxy/ingest.requested",
       data: payload,
