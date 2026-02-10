@@ -12,7 +12,6 @@ import type { XTweet } from "./client";
 export interface StitchedThread {
   /** The conversation_id all tweets share */
   conversationId: string;
-  /** Combined text of the thread, in chronological order */
   text: string;
   /** All original tweets in order */
   tweets: XTweet[];

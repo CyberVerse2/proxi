@@ -7,7 +7,7 @@ import {
   ZX_API_BASE,
 } from "@/lib/config/constants";
 
-const ZX_API_KEY = process.env["0X_API_KEY"] ?? "";
+const ZX_API_KEY = process.env["ZEROX_API_KEY"] ?? "";
 
 // Affiliate fee config — 1% fee sent to the platform wallet in the sell token
 const SWAP_FEE_RECIPIENT = process.env.PLATFORM_WALLET_ADDRESS;
