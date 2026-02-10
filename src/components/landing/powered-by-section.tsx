@@ -112,3 +112,4 @@ function PoweredCard({ item }: { item: PoweredItem }) {
     </div>
   );
 }
+//
