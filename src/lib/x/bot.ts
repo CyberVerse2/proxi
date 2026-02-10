@@ -235,7 +235,7 @@ export async function sendCompletionReply(
   const lines = [
     `@${handle} Your proxy is live. People can now chat with it: ${appUrl}/${handle.toLowerCase()}`,
     ``,
-    `Claim your proxy to customize it further and start earning fees: ${appUrl}/${handle.toLowerCase()}/claim`,
+    `Claim your proxy to make it smarter and start earning fees: ${appUrl}/${handle.toLowerCase()}/claim`,
   ];
 
   await sendTweet(lines.join("\n"), originalTweetId);
