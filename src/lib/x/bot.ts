@@ -233,22 +233,10 @@ export async function sendCompletionReply(
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://proxi.fun";
 
   const lines = [
-    `@${handle} ✅ Your proxy is live!`,
+    `@${handle} Your proxy is live. People can now chat with it: ${appUrl}/${handle.toLowerCase()}`,
     ``,
-    'People can now chat with your proxy: ${appUrl}/${handle.toLowerCase()}',
+    `Claim your proxy to customize it further and start earning fees: ${appUrl}/${handle.toLowerCase()}/claim`,
   ];
-
-  if (tokenInfo) {
-    // Add Dexscreener link for the token
-    lines.push(
-      `💰 Your proxy token: $${tokenInfo.ticker} — [View chart](https://dexscreener.com/base/${tokenInfo.tokenAddress})`
-    );
-    lines.push(`🎁 Claim your proxy fees: ${appUrl}/${handle.toLowerCase()}/claim`);
-  } else {
-    lines.push(
-      `People can now chat with your proxy. Claim your proxy to customize it further.`,
-    );
-  }
 
   await sendTweet(lines.join("\n"), originalTweetId);
   void proxyId; // Used for linking in production
