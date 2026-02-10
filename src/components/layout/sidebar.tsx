@@ -46,9 +46,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <div className="h-14 px-4 flex items-center justify-between border-b border-white/6">
         <div className="flex items-center">
           {collapsed ? (
-            <Image src="/image.png" alt="Proxi" width={24} height={24} className="shrink-0" />
+            <Image src="/image.png" alt="Proxi" width={20} height={20} className="shrink-0" />
           ) : (
-            <Image src="/logotext.png" alt="Proxi" width={120} height={34} className="shrink-0" />
+            <Image src="/logotext.png" alt="Proxi" width={80} height={22} className="shrink-0" />
           )}
         </div>
         <button
