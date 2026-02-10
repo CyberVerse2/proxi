@@ -1,9 +1,31 @@
-"use client";
+'use client';
 
-import { PrivyProvider } from "@privy-io/react-auth";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
-import { base } from "viem/chains";
+import { PrivyProvider, usePrivy } from '@privy-io/react-auth';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useRouter, usePathname } from 'next/navigation';
+import { useEffect, useState, useRef } from 'react';
+import { base } from 'viem/chains';
+
+/** Redirect to dashboard when user completes login/signup */
+function LoginRedirect({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { ready, authenticated } = usePrivy();
+  const wasAuthenticated = useRef(false);
+
+  useEffect(() => {
+    if (!ready) return;
+    if (authenticated && !wasAuthenticated.current) {
+      wasAuthenticated.current = true;
+      if (pathname !== '/dashboard') {
+        router.replace('/dashboard');
+      }
+    }
+    if (!authenticated) wasAuthenticated.current = false;
+  }, [ready, authenticated, pathname, router]);
+
+  return <>{children}</>;
+}
 
 function PrivyWrapper({ children }: { children: React.ReactNode }) {
   const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
@@ -12,14 +34,14 @@ function PrivyWrapper({ children }: { children: React.ReactNode }) {
     <PrivyProvider
       appId={appId}
       config={{
-        appearance: { theme: "dark", accentColor: "#BFFF00" },
-        loginMethods: ["twitter"],
+        appearance: { theme: 'dark', accentColor: '#BFFF00' },
+        loginMethods: ['twitter'],
         defaultChain: base,
         supportedChains: [base],
-        embeddedWallets: { ethereum: { createOnLogin: "users-without-wallets" } },
+        embeddedWallets: { ethereum: { createOnLogin: 'users-without-wallets' } }
       }}
     >
-      {children}
+      <LoginRedirect>{children}</LoginRedirect>
     </PrivyProvider>
   );
 }

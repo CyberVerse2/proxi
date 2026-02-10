@@ -16,23 +16,23 @@ const delaGothic = Dela_Gothic_One({
 });
 
 export const metadata: Metadata = {
-  title: "Proxi — The AI Social Token Network",
+  title: "Proxi — Clone Yourself. Earn Forever.",
   description:
-    "Create your AI-powered digital clone from your public and private data. Tokenize your worldview, let anyone chat with your proxy",
+    "Create an AI clone of yourself that anyone can talk to. Each clone gets its own token — you earn 50% of fees forever.",
   icons: {
     icon: "/image.png",
     apple: "/image.png",
   },
   openGraph: {
-    title: "Proxi — The AI Social Token Network",
+    title: "Proxi — Clone Yourself. Earn Forever.",
     description:
-      "Create your AI-powered digital clone from your public and private data. Tokenize your worldview and let anyone chat with your proxy.",
+      "Create an AI clone of yourself that anyone can talk to. Each clone gets its own token — you earn 50% of fees forever.",
     images: [
       {
         url: "/og_image.png",
         width: 1200,
         height: 630,
-        alt: "Proxi AI Social Token",
+        alt: "Proxi Clone Yourself. Earn Forever.",
       },
     ],
     type: "website",
@@ -42,9 +42,9 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     site: "@proxiagent",
-    title: "Proxi — The AI Social Token Network",
+    title: "Proxi — Clone Yourself. Earn Forever.",
     description:
-      "Create and trade AI clones from your X data. Own your token. Chat with anyone’s AI.",
+      "Create an AI clone of yourself that anyone can talk to. Each clone gets its own token — you earn 50% of fees forever.",
     images: ["/og-image.png"],
   },
 };

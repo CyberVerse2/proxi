@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 
 export function TopNav() {
-  const { authenticated, login, xHandle } = useAuth();
+  const { authenticated, login } = useAuth();
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 h-20 px-6 flex items-center justify-between bg-black/80 backdrop-blur-md border-b border-white/6">
@@ -23,7 +23,7 @@ export function TopNav() {
             <Link href="/explore">
               <Button variant="secondary" size="sm">Explore</Button>
             </Link>
-            <Link href={`/${xHandle ?? "dashboard"}`}>
+            <Link href={`/dashboard`}>
               <Button size="sm">Dashboard</Button>
             </Link>
           </>
