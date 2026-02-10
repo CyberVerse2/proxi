@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { tasks } from "@trigger.dev/sdk";
-import type { ingestProxy } from "@/trigger/ingest-proxy";
+import { inngest } from "@/inngest/client";
 import {
   getUserByPrivyId,
   getProxyByCreatorId,
@@ -61,20 +60,23 @@ export async function POST(request: Request) {
     );
   }
 
-  // Trigger the ingestion task
+  // Trigger the ingestion via Inngest
   try {
-    const handle = await tasks.trigger<typeof ingestProxy>("ingest-proxy", {
-      proxyId: proxy.id,
-      xHandle,
-      maxTweets: 500,
-      walletAddress: user.walletAddress,
+    await inngest.send({
+      name: "proxy/ingest.requested",
+      data: {
+        proxyId: proxy.id,
+        xHandle,
+        maxTweets: 500,
+        walletAddress: user.walletAddress,
+      },
     });
 
-    return NextResponse.json({ runId: handle.id, proxyId: proxy.id });
+    return NextResponse.json({ proxyId: proxy.id });
   } catch (error) {
     console.error("[setup] Failed to trigger ingestion:", error);
     return NextResponse.json(
-      { error: "Failed to start ingestion. Make sure the Trigger.dev dev server is running." },
+      { error: "Failed to start ingestion." },
       { status: 500 }
     );
   }

@@ -1,11 +1,13 @@
 /**
- * Trigger.dev task: ingest-proxy
+ * Inngest event-driven function: ingest-proxy
  *
- * Wraps the full X data ingestion pipeline in a durable background task
+ * Wraps the full X data ingestion pipeline in a durable background function
  * with retry, progress logging, and concurrency control.
+ *
+ * Triggered by the "proxy/ingest.requested" event.
  */
 
-import { task, logger } from "@trigger.dev/sdk";
+import { inngest } from "./client";
 import { runFullIngestion } from "@/lib/x/ingest";
 import { sendCompletionReply } from "@/lib/x/bot";
 import { sendTweet } from "@/lib/x/client";
@@ -14,43 +16,26 @@ import { ingestionLogs } from "@/lib/db/schema";
 import { deployProxyToken } from "@/lib/chain/token";
 import { getProxyById } from "@/lib/db/queries";
 
-interface IngestProxyPayload {
-  proxyId: string;
-  xHandle: string;
-  /** Original tweet ID so the task can reply with the completion message. */
-  tweetId?: string;
-  /** Max tweets to fetch. Defaults to 500. */
-  maxTweets?: number;
-  /** Creator's wallet address — used to deploy their token after ingestion. */
-  walletAddress: string;
-}
-
-export const ingestProxy = task({
-  id: "ingest-proxy",
-
-  // Retry up to 2 times with exponential backoff (X API can be flaky)
-  retry: {
-    maxAttempts: 3,
-    factor: 2,
-    minTimeoutInMs: 5_000,
-    maxTimeoutInMs: 60_000,
+export const ingestProxy = inngest.createFunction(
+  {
+    id: "ingest-proxy",
+    concurrency: [{ limit: 2 }],
+    retries: 3,
   },
+  { event: "proxy/ingest.requested" },
+  async ({ event, attempt }) => {
+    const { proxyId, xHandle, tweetId, maxTweets, walletAddress } = event.data as {
+      proxyId: string;
+      xHandle: string;
+      tweetId?: string;
+      maxTweets?: number;
+      walletAddress: string;
+    };
 
-  // Ingestion can take a while for large accounts
-  maxDuration: 600, // 10 minutes
-
-  // Only run one ingestion at a time per environment to avoid rate limits
-  queue: {
-    concurrencyLimit: 2,
-  },
-
-  run: async (payload: IngestProxyPayload, { ctx }) => {
-    const { proxyId, xHandle, tweetId, maxTweets, walletAddress } = payload;
-
-    logger.info("Starting proxy ingestion", { proxyId, xHandle, maxTweets });
+    console.log("[ingest] Starting proxy ingestion", { proxyId, xHandle, maxTweets });
 
     const logStep = async (step: string, detail: string) => {
-      logger.info(`[${step}] ${detail}`, { proxyId, step });
+      console.log(`[ingest] [${step}] ${detail}`, { proxyId, step });
       await db.insert(ingestionLogs).values({
         proxyId,
         step,
@@ -83,7 +68,7 @@ export const ingestProxy = task({
         finishedAt: new Date(),
       });
 
-      logger.info("Proxy ingestion complete", {
+      console.log("[ingest] Proxy ingestion complete", {
         proxyId,
         xHandle,
         tweetsCollected: result.tweetsCollected,
@@ -96,7 +81,7 @@ export const ingestProxy = task({
 
       if (proxy?.tokenAddress) {
         // Already deployed (e.g. retry after partial success)
-        logger.info("Token already deployed, skipping", {
+        console.log("[ingest] Token already deployed, skipping", {
           proxyId,
           tokenAddress: proxy.tokenAddress,
         });
@@ -105,7 +90,7 @@ export const ingestProxy = task({
           ticker: proxy.ticker ?? xHandle.toUpperCase().slice(0, 5),
         };
       } else {
-        logger.info("Deploying token for proxy", { proxyId, walletAddress });
+        console.log("[ingest] Deploying token for proxy", { proxyId, walletAddress });
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://proxi.fun";
         const displayName = proxy?.displayName ?? xHandle;
         const tokenResult = await deployProxyToken({
@@ -120,7 +105,7 @@ export const ingestProxy = task({
           tokenAddress: tokenResult.tokenAddress,
           ticker: tokenResult.ticker,
         };
-        logger.info("Token deployed", {
+        console.log("[ingest] Token deployed", {
           proxyId,
           tokenAddress: tokenResult.tokenAddress,
           ticker: tokenResult.ticker,
@@ -132,10 +117,10 @@ export const ingestProxy = task({
       if (tweetId) {
         try {
           await sendCompletionReply(xHandle, proxyId, tweetId, tokenInfo);
-          logger.info("Completion tweet sent", { xHandle, tweetId, tokenInfo });
+          console.log("[ingest] Completion tweet sent", { xHandle, tweetId, tokenInfo });
         } catch (replyErr) {
           // Don't fail the whole task if the tweet fails
-          logger.warn("Failed to send completion tweet", {
+          console.warn("[ingest] Failed to send completion tweet", {
             error: replyErr instanceof Error ? replyErr.message : String(replyErr),
           });
         }
@@ -157,13 +142,13 @@ export const ingestProxy = task({
         // Swallow — don't let logging failures mask the real error
       }
 
-      const maxAttempts = 3; // matches retry.maxAttempts above
-      const isLastAttempt = ctx.attempt.number >= maxAttempts;
+      const maxAttempts = 3;
+      const isLastAttempt = attempt >= maxAttempts;
 
-      logger.error("Proxy ingestion failed", {
+      console.error("[ingest] Proxy ingestion failed", {
         proxyId,
         xHandle,
-        attempt: ctx.attempt.number,
+        attempt,
         isLastAttempt,
         error: error instanceof Error ? error.message : String(error),
       });
@@ -185,7 +170,7 @@ export const ingestProxy = task({
         }
       }
 
-      throw error; // Re-throw so Trigger.dev retries
+      throw error; // Re-throw so Inngest retries
     }
   },
-});
+);

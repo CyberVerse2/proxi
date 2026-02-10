@@ -19,13 +19,13 @@
     "@privy-io/react-auth": "^3.13.1",
     "@privy-io/server-auth": "^1.32.5",
     "@tanstack/react-query": "^5.90.20",
-    "@trigger.dev/sdk": "^4.3.3",
     "@xdevplatform/xdk": "^0.4.0",
     "ai": "^6.0.77",
     "clanker-sdk": "^4.2.10",
     "clsx": "^2.1.1",
     "dotenv": "^17.2.4",
     "drizzle-orm": "^0.45.1",
+    "inngest": "^3.52.0",
     "lucide-react": "^0.563.0",
     "next": "16.1.6",
     "postgres": "^3.4.8",
@@ -40,7 +40,6 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@trigger.dev/build": "^4.3.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -49,7 +48,6 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
-    "trigger.dev": "^4.3.3",
     "tsx": "^4.21.0",
     "typescript": "^5"
   }

@@ -4,8 +4,7 @@
  * and dispatches the Trigger.dev ingestion task.
  */
 
-import { tasks } from "@trigger.dev/sdk";
-import type { ingestProxy } from "@/trigger/ingest-proxy";
+import { inngest } from "@/inngest/client";
 import { generateText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { sendTweet, getUserByUsername, type XTweet } from "./client";
@@ -191,17 +190,20 @@ export async function handleCreateMention(
     status: "building",
   });
 
-  // Step 5: Dispatch background task via Trigger.dev (with walletAddress)
+  // Step 5: Dispatch background task via Inngest
   try {
-    const handle = await tasks.trigger<typeof ingestProxy>("ingest-proxy", {
-      proxyId: proxy.id,
-      xHandle: authorHandle,
-      tweetId,
-      walletAddress,
+    await inngest.send({
+      name: "proxy/ingest.requested",
+      data: {
+        proxyId: proxy.id,
+        xHandle: authorHandle,
+        tweetId,
+        walletAddress,
+      },
     });
 
     console.log(
-      `[bot] Triggered ingest-proxy task for @${authorHandle}: run ${handle.id}`,
+      `[bot] Triggered ingest-proxy for @${authorHandle}`,
     );
   } catch (error) {
     console.error(

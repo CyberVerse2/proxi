@@ -31,8 +31,7 @@ dotenv.config();
 
 import postgres from "postgres";
 import { getUserByUsername } from "../src/lib/x/client";
-import { tasks } from "@trigger.dev/sdk";
-import type { ingestProxy } from "../src/trigger/ingest-proxy";
+import { Inngest } from "inngest";
 import { PrivyClient } from "@privy-io/server-auth";
 import { readFileSync } from "fs";
 import { join } from "path";
@@ -280,12 +279,14 @@ async function main() {
     console.log(`   Top posts:        ${result.topSelected}`);
     console.log(`   Chunks stored:    ${result.chunksStored}`);
   } else {
-    console.log(`\n🚀 Triggering ingest-proxy task...`);
+    console.log(`\n🚀 Triggering ingest-proxy via Inngest...`);
 
     if (!walletAddress) {
       console.error(`\n❌ Wallet address is required for token deployment. Use --wallet <address>.`);
       process.exit(1);
     }
+
+    const inngest = new Inngest({ id: "proxi" });
 
     const payload: {
       proxyId: string;
@@ -300,17 +301,14 @@ async function main() {
     if (maxTweets) payload.maxTweets = maxTweets;
     console.log(`   Token deployment enabled (wallet: ${walletAddress})`);
 
-    const run = await tasks.trigger<typeof ingestProxy>(
-      "ingest-proxy",
-      payload
-    );
+    await inngest.send({
+      name: "proxy/ingest.requested",
+      data: payload,
+    });
 
-    console.log(`\n✅ Task triggered! Run ID: ${run.id}`);
+    console.log(`\n✅ Ingestion event sent!`);
     console.log(
-      `📊 Dashboard: https://cloud.trigger.dev/projects/v3/proj_ebjluzuysonvaqmjjrgv/runs/${run.id}`
-    );
-    console.log(
-      `\nThe task is running in the background. Check the dashboard for progress.`
+      `\nThe function is running in the background. Check the Inngest dashboard for progress.`
     );
   }
 
