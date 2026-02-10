@@ -4,14 +4,14 @@
  * and dispatches the Trigger.dev ingestion task.
  */
 
-import { inngest } from "@/inngest/client";
-import { generateText } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
-import { sendTweet, getUserByUsername, type XTweet } from "./client";
-import { createProxy, getProxyByHandle, upsertUser } from "@/lib/db/queries";
-import { createUserWithWallet } from "@/lib/auth/privy";
+import { inngest } from '@/inngest/client';
+import { generateText } from 'ai';
+import { anthropic } from '@ai-sdk/anthropic';
+import { sendTweet, getUserByUsername, type XTweet } from './client';
+import { createProxy, getProxyByHandle, upsertUser } from '@/lib/db/queries';
+import { createUserWithWallet } from '@/lib/auth/privy';
 
-const BOT_HANDLE = process.env.BOT_HANDLE ?? "proxiagent";
+const BOT_HANDLE = process.env.BOT_HANDLE ?? 'proxiagent';
 
 interface MentionEvent {
   tweet: XTweet;
@@ -37,7 +37,7 @@ export function parseCreateIntent(tweet: XTweet): MentionEvent | null {
     /create\s*(my\s*)?(proxy|clone)/i,
     /make\s*(my\s*)?(proxy|clone)/i,
     /build\s*(my\s*)?(proxy|clone)/i,
-    /setup\s*(my\s*)?(proxy|clone)/i,
+    /setup\s*(my\s*)?(proxy|clone)/i
   ];
 
   const isCreateIntent = createPatterns.some((p) => p.test(text));
@@ -47,7 +47,7 @@ export function parseCreateIntent(tweet: XTweet): MentionEvent | null {
   // Extract their handle from the tweet author (would come from webhook)
   return {
     tweet,
-    mentionedHandle: "", // Will be populated from webhook data
+    mentionedHandle: '' // Will be populated from webhook data
   };
 }
 
@@ -56,13 +56,10 @@ export function parseCreateIntent(tweet: XTweet): MentionEvent | null {
  * rather than an individual person. Returns true if the account appears
  * to be a company.
  */
-async function detectCompanyAccount(
-  name: string,
-  bio: string,
-): Promise<boolean> {
+async function detectCompanyAccount(name: string, bio: string): Promise<boolean> {
   try {
     const { text } = await generateText({
-      model: anthropic("claude-haiku-3"),
+      model: anthropic('claude-haiku-3'),
       maxOutputTokens: 10,
       prompt: `You are classifying a Twitter/X account as either an INDIVIDUAL person or a COMPANY/BRAND/ORGANIZATION.
 
@@ -75,13 +72,13 @@ Rules:
 - Creators, founders, freelancers, and personal accounts are INDIVIDUAL even if they promote their own brand.
 - When in doubt, respond "INDIVIDUAL".
 
-Respond with exactly one word: COMPANY or INDIVIDUAL.`,
+Respond with exactly one word: COMPANY or INDIVIDUAL.`
     });
 
-    return text.trim().toUpperCase() === "COMPANY";
+    return text.trim().toUpperCase() === 'COMPANY';
   } catch (err) {
     // If AI call fails, default to allowing the account through
-    console.error("[bot] Company detection failed, allowing account:", err);
+    console.error('[bot] Company detection failed, allowing account:', err);
     return false;
   }
 }
@@ -94,18 +91,15 @@ Respond with exactly one word: COMPANY or INDIVIDUAL.`,
  * 4. Send initial reply
  * 5. Dispatch background task via Trigger.dev (with walletAddress)
  */
-export async function handleCreateMention(
-  authorHandle: string,
-  tweetId: string,
-) {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://proxi.fun";
+export async function handleCreateMention(authorHandle: string, tweetId: string) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://proxi.fun';
 
   // Step 0: Check if a proxy already exists for this handle
   const existing = await getProxyByHandle(authorHandle);
   if (existing) {
     await sendTweet(
       `@${authorHandle} You already have a proxy! Check it out: ${appUrl}/${authorHandle}`,
-      tweetId,
+      tweetId
     );
     return;
   }
@@ -115,21 +109,18 @@ export async function handleCreateMention(
   if (!xUser) {
     await sendTweet(
       `@${authorHandle} Couldn't find your X profile. Make sure your account is public and try again!`,
-      tweetId,
+      tweetId
     );
     return;
   }
 
   // Step 1b: Reject company/brand accounts using AI analysis
   if (xUser.description) {
-    const isCompany = await detectCompanyAccount(
-      xUser.name,
-      xUser.description,
-    );
+    const isCompany = await detectCompanyAccount(xUser.name, xUser.description);
     if (isCompany) {
       await sendTweet(
         `@${authorHandle} Proxi is designed for individual creators, not company or brand accounts. If you're a person behind this account, update your bio and try again!`,
-        tweetId,
+        tweetId
       );
       return;
     }
@@ -143,8 +134,8 @@ export async function handleCreateMention(
     if (followers < 200) reasons.push(`${followers}/200 followers`);
     if (tweets < 200) reasons.push(`${tweets}/200 posts`);
     await sendTweet(
-      `@${authorHandle} Your account needs at least 200 followers and 200 posts to create a proxy. You currently have ${reasons.join(" and ")}. Keep posting and try again soon!`,
-      tweetId,
+      `@${authorHandle} Your account needs at least 200 followers and 200 posts to create a proxy. You currently have ${reasons.join(' and ')}. Keep posting and try again soon!`,
+      tweetId
     );
     return;
   }
@@ -162,21 +153,16 @@ export async function handleCreateMention(
       walletAddress: privyResult.walletAddress,
       xHandle: authorHandle,
       displayName: xUser.name,
-      xProfileImageUrl: xUser.profile_image_url?.replace("_normal", "_400x400"),
-      bio: xUser.description,
+      xProfileImageUrl: xUser.profile_image_url?.replace('_normal', '_400x400'),
+      bio: xUser.description
     });
 
-    console.log(
-      `[bot] Created Privy user + wallet for @${authorHandle}: ${walletAddress}`,
-    );
+    console.log(`[bot] Created Privy user + wallet for @${authorHandle}: ${walletAddress}`);
   } catch (privyErr) {
-    console.error(
-      `[bot] Failed to create Privy wallet for @${authorHandle}:`,
-      privyErr,
-    );
+    console.error(`[bot] Failed to create Privy wallet for @${authorHandle}:`, privyErr);
     await sendTweet(
       `@${authorHandle} Something went wrong setting up your account. Please try again in a few minutes!`,
-      tweetId,
+      tweetId
     );
     return;
   }
@@ -185,34 +171,29 @@ export async function handleCreateMention(
   const proxy = await createProxy({
     xHandle: authorHandle,
     displayName: xUser.name,
-    avatarUrl: xUser.profile_image_url?.replace("_normal", "_400x400"),
+    avatarUrl: xUser.profile_image_url?.replace('_normal', '_400x400'),
     bio: xUser.description,
-    status: "building",
+    status: 'building'
   });
 
   // Step 5: Dispatch background task via Inngest
   try {
     await inngest.send({
-      name: "proxy/ingest.requested",
+      name: 'proxy/ingest.requested',
       data: {
         proxyId: proxy.id,
         xHandle: authorHandle,
         tweetId,
-        walletAddress,
-      },
+        walletAddress
+      }
     });
 
-    console.log(
-      `[bot] Triggered ingest-proxy for @${authorHandle}`,
-    );
+    console.log(`[bot] Triggered ingest-proxy for @${authorHandle}`);
   } catch (error) {
-    console.error(
-      `[bot] Failed to trigger ingestion for @${authorHandle}:`,
-      error,
-    );
+    console.error(`[bot] Failed to trigger ingestion for @${authorHandle}:`, error);
     await sendTweet(
       `@${authorHandle} Sorry, something went wrong while building your proxy. Our team has been notified. Please try again later!`,
-      tweetId,
+      tweetId
     );
   }
 }
@@ -228,16 +209,17 @@ export async function sendCompletionReply(
   handle: string,
   proxyId: string,
   originalTweetId: string,
-  tokenInfo?: { tokenAddress: string; ticker: string },
+  tokenInfo?: { tokenAddress: string; ticker: string }
 ) {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://proxi.fun";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://proxi.fun';
 
-  const lines = [
-    `@${handle} Your proxy is live. People can now chat with it: ${appUrl}/${handle.toLowerCase()}`,
-    ``,
-    `Claim your proxy to make it smarter and start earning fees: ${appUrl}/${handle.toLowerCase()}/claim`,
-  ];
+  await sendTweet(
+    `@${handle} Your proxy is live. People can now chat with it: ${appUrl}/${handle.toLowerCase()}
 
-  await sendTweet(lines.join("\n"), originalTweetId);
+    Claim your proxy to make it smarter and start earning fees: ${appUrl}/${handle.toLowerCase()}/claim
+
+    Your proxy token: https://dexscreener.com/base/${tokenInfo?.tokenAddress})`,
+    originalTweetId
+  );
   void proxyId; // Used for linking in production
 }
