@@ -9,6 +9,7 @@
     "lint": "eslint",
     "clone": "tsx scripts/clone.ts",
     "launch-proxies": "tsx scripts/launch-proxies.ts",
+    "assign-proxy-categories": "tsx scripts/assign-proxy-categories.ts",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:seed": "tsx scripts/seed-categories.ts"
