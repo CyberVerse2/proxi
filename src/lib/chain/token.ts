@@ -564,6 +564,125 @@ async function fetchDexScreenerData(tokenAddress: string) {
   };
 }
 
+/* ─── DexScreener: Batch volume for multiple tokens ─── */
+
+interface DexScreenerPair {
+  baseToken?: { address?: string };
+  volume?: Record<string, number>;
+  liquidity?: { usd?: number };
+  marketCap?: number;
+  priceUsd?: string;
+}
+
+export interface BatchTokenVolume {
+  tokenAddress: string;
+  volume24h: number;
+  liquidity: number;
+  marketCap: number;
+  priceUsd: number;
+}
+
+/**
+ * Fetch live volume data from DexScreener for multiple tokens in batch.
+ * Uses the /tokens/v1/base/{addresses} endpoint (up to 30 per request).
+ * For each token, picks the highest-liquidity pair to avoid double-counting.
+ */
+export async function fetchBatchDexScreenerData(
+  tokenAddresses: string[]
+): Promise<BatchTokenVolume[]> {
+  if (tokenAddresses.length === 0) return [];
+
+  const results: BatchTokenVolume[] = [];
+  const BATCH_SIZE = 30;
+
+  // Split into batches of 30
+  for (let i = 0; i < tokenAddresses.length; i += BATCH_SIZE) {
+    const batch = tokenAddresses.slice(i, i + BATCH_SIZE);
+    const joined = batch.join(',');
+
+    try {
+      const res = await fetch(
+        `https://api.dexscreener.com/tokens/v1/base/${joined}`,
+        { next: { revalidate: 60 } }
+      );
+      if (!res.ok) continue;
+
+      const pairs: DexScreenerPair[] = await res.json();
+      if (!Array.isArray(pairs)) continue;
+
+      // Group pairs by base token address, pick highest-liquidity pair per token
+      const bestByToken = new Map<string, DexScreenerPair>();
+      for (const pair of pairs) {
+        const addr = pair.baseToken?.address?.toLowerCase();
+        if (!addr) continue;
+        const existing = bestByToken.get(addr);
+        const existingLiq = existing?.liquidity?.usd ?? 0;
+        const currentLiq = pair.liquidity?.usd ?? 0;
+        if (!existing || currentLiq > existingLiq) {
+          bestByToken.set(addr, pair);
+        }
+      }
+
+      for (const [addr, pair] of bestByToken) {
+        results.push({
+          tokenAddress: addr,
+          volume24h: pair.volume?.h24 ?? 0,
+          liquidity: pair.liquidity?.usd ?? 0,
+          marketCap: pair.marketCap ?? 0,
+          priceUsd: pair.priceUsd ? parseFloat(pair.priceUsd) : 0,
+        });
+      }
+    } catch (err) {
+      console.error('[token] DexScreener batch fetch error:', err);
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Fetch the aggregate 24h volume across all Proxi tokens from DexScreener.
+ * Queries the DB for all token addresses, then batch-fetches from DexScreener.
+ */
+export async function getTotalLiveVolume(): Promise<{
+  totalVolume24h: number;
+  totalLiquidity: number;
+  totalMarketCap: number;
+  tokenCount: number;
+}> {
+  // Get all token addresses from DB
+  const tokens = await db
+    .select({ tokenAddress: proxyTokens.tokenAddress })
+    .from(proxyTokens);
+
+  const addresses = tokens
+    .map((t) => t.tokenAddress)
+    .filter(Boolean);
+
+  if (addresses.length === 0) {
+    return { totalVolume24h: 0, totalLiquidity: 0, totalMarketCap: 0, tokenCount: 0 };
+  }
+
+  const data = await fetchBatchDexScreenerData(addresses);
+
+  let totalVolume24h = 0;
+  let totalLiquidity = 0;
+  let totalMarketCap = 0;
+
+  for (const item of data) {
+    totalVolume24h += item.volume24h;
+    totalLiquidity += item.liquidity;
+    totalMarketCap += item.marketCap;
+  }
+
+  return {
+    totalVolume24h,
+    totalLiquidity,
+    totalMarketCap,
+    tokenCount: data.length,
+  };
+}
+
 /* ────────────────────────────────────────────────────────── */
 /*  Tokens-per-message pricing (0x price API)                 */
 /* ────────────────────────────────────────────────────────── */
