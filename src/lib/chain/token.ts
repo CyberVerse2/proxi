@@ -46,7 +46,7 @@ function getClankerClient() {
     transport: http(RPC_URL)
   });
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- viem minor version mismatch with SDK
+
   return {
     clanker: new Clanker({ publicClient: publicClient as any, wallet: wallet as any }),
     account
