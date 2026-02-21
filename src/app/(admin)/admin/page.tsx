@@ -38,6 +38,14 @@ interface RecentProxy {
   totalChats: number;
 }
 
+interface Revenue {
+  claimedWeth: string;
+  unclaimedWeth: string;
+  totalWeth: string;
+  ethPriceUsd: number;
+  totalRevenueUsd: number;
+}
+
 function formatUsd(value: number): string {
   if (value === 0) return "$0";
   if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
@@ -68,6 +76,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function AdminOverviewPage() {
   const { getAccessToken } = useAuth();
   const [stats, setStats] = useState<Stats | null>(null);
+  const [revenue, setRevenue] = useState<Revenue | null>(null);
   const [recentLogs, setRecentLogs] = useState<IngestionLog[]>([]);
   const [recentProxies, setRecentProxies] = useState<RecentProxy[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,13 +99,15 @@ export default function AdminOverviewPage() {
       const token = await getAccessToken?.();
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [statsRes, logsRes, proxiesRes] = await Promise.all([
+      const [statsRes, revenueRes, logsRes, proxiesRes] = await Promise.all([
         fetch(`/api/admin/stats?period=${period}`, { headers }),
+        fetch("/api/admin/revenue", { headers }),
         fetch("/api/admin/ingestion?limit=10", { headers }),
         fetch("/api/admin/proxies?limit=5", { headers }),
       ]);
 
       if (statsRes.ok) setStats(await statsRes.json());
+      if (revenueRes.ok) setRevenue(await revenueRes.json());
       if (logsRes.ok) {
         const data = await logsRes.json();
         setRecentLogs(data.rows ?? []);
@@ -200,6 +211,48 @@ export default function AdminOverviewPage() {
             icon={<Database size={16} />}
           />
         </div>
+
+        {/* Revenue card */}
+        {revenue && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Platform Revenue (LP Fees)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="space-y-1">
+                  <span className="text-gray text-xs">Total Revenue</span>
+                  <p className="text-white text-2xl font-bold">
+                    {formatUsd(revenue.totalRevenueUsd)}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-gray text-xs">Total WETH Earned</span>
+                  <p className="text-white text-lg font-semibold">
+                    {parseFloat(revenue.totalWeth).toFixed(6)} WETH
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-gray text-xs">Claimed</span>
+                  <p className="text-emerald-400 text-lg font-semibold">
+                    {parseFloat(revenue.claimedWeth).toFixed(6)} WETH
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-gray text-xs">Unclaimed</span>
+                  <p className="text-yellow-400 text-lg font-semibold">
+                    {parseFloat(revenue.unclaimedWeth).toFixed(6)} WETH
+                  </p>
+                </div>
+              </div>
+              {revenue.ethPriceUsd > 0 && (
+                <p className="text-gray/50 text-[11px] mt-3">
+                  ETH price: ${revenue.ethPriceUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Proxy status breakdown */}
         {stats?.proxyByStatus && Object.keys(stats.proxyByStatus).length > 0 && (
