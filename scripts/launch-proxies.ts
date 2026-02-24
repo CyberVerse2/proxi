@@ -130,31 +130,38 @@ async function launchOne(
     }
   }
 
+  const avatar = xUser.profile_image_url?.replace("_normal", "_400x400") ?? null;
+  const bio = xUser.description ?? null;
+
   if (privyId) {
-    const [existingUser] = await sql`SELECT id FROM users WHERE privy_id = ${privyId}`;
+    const pid: string = privyId;
+    const wallet = walletAddress ?? null;
+
+    const [existingUser] = await sql`SELECT id FROM users WHERE privy_id = ${pid}`;
     if (existingUser) {
       userId = existingUser.id;
+      const uid: string = userId!;
       await sql`
         UPDATE users SET
-          wallet_address = ${walletAddress ?? null},
+          wallet_address = ${wallet},
           x_handle = ${cleanHandle},
           display_name = ${xUser.name},
-          x_profile_image_url = ${xUser.profile_image_url?.replace("_normal", "_400x400") ?? null},
-          bio = ${xUser.description ?? null},
+          x_profile_image_url = ${avatar},
+          bio = ${bio},
           updated_at = now()
-        WHERE id = ${userId}
+        WHERE id = ${uid}
       `;
     } else {
       const [row] = await sql`
         INSERT INTO users (privy_id, wallet_address, x_handle, display_name, x_profile_image_url, bio)
-        VALUES (${privyId}, ${walletAddress ?? null}, ${cleanHandle}, ${xUser.name},
-                ${xUser.profile_image_url?.replace("_normal", "_400x400") ?? null},
-                ${xUser.description ?? null})
+        VALUES (${pid}, ${wallet}, ${cleanHandle}, ${xUser.name}, ${avatar}, ${bio})
         RETURNING id
       `;
       userId = row.id;
     }
   }
+
+  const creatorId = userId ?? null;
 
   const [existing] = await sql`
     SELECT id, status, token_address FROM proxies WHERE x_handle = ${cleanHandle}
@@ -166,18 +173,16 @@ async function launchOne(
     await sql`
       UPDATE proxies SET
         status = 'building',
-        creator_id = ${userId ?? null},
+        creator_id = ${creatorId},
         display_name = ${xUser.name},
-        avatar_url = ${xUser.profile_image_url?.replace("_normal", "_400x400") ?? null},
-        bio = ${xUser.description ?? null}
+        avatar_url = ${avatar},
+        bio = ${bio}
       WHERE id = ${proxyId}
     `;
   } else {
     const [row] = await sql`
       INSERT INTO proxies (x_handle, creator_id, display_name, avatar_url, bio, status)
-      VALUES (${cleanHandle}, ${userId ?? null}, ${xUser.name},
-              ${xUser.profile_image_url?.replace("_normal", "_400x400") ?? null},
-              ${xUser.description ?? null}, 'building')
+      VALUES (${cleanHandle}, ${creatorId}, ${xUser.name}, ${avatar}, ${bio}, 'building')
       RETURNING id
     `;
     proxyId = row.id;
