@@ -74,30 +74,38 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function AdminOverviewPage() {
-  const { getAccessToken } = useAuth();
+  const { ready, authenticated, getAccessToken } = useAuth();
   const [stats, setStats] = useState<Stats | null>(null);
   const [revenue, setRevenue] = useState<Revenue | null>(null);
   const [recentLogs, setRecentLogs] = useState<IngestionLog[]>([]);
   const [recentProxies, setRecentProxies] = useState<RecentProxy[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<Period>("all");
   const [statsLoading, setStatsLoading] = useState(false);
 
-  // Fetch stats whenever period changes
+  const getHeaders = useCallback(async () => {
+    const token = await getAccessToken?.();
+    if (!token) return null;
+    return { Authorization: `Bearer ${token}` };
+  }, [getAccessToken]);
+
   const fetchStats = useCallback(async (p: Period) => {
     setStatsLoading(true);
-    const token = await getAccessToken?.();
-    const headers = { Authorization: `Bearer ${token}` };
+    const headers = await getHeaders();
+    if (!headers) { setStatsLoading(false); return; }
     const res = await fetch(`/api/admin/stats?period=${p}`, { headers });
     if (res.ok) setStats(await res.json());
     setStatsLoading(false);
-  }, [getAccessToken]);
+  }, [getHeaders]);
 
-  // Initial load: stats + recent activity
   useEffect(() => {
+    if (!ready) return;
+    if (!authenticated) { setLoading(false); setError("unauthorized"); return; }
+
     async function load() {
-      const token = await getAccessToken?.();
-      const headers = { Authorization: `Bearer ${token}` };
+      const headers = await getHeaders();
+      if (!headers) { setLoading(false); setError("unauthorized"); return; }
 
       const [statsRes, revenueRes, logsRes, proxiesRes] = await Promise.all([
         fetch(`/api/admin/stats?period=${period}`, { headers }),
@@ -105,6 +113,12 @@ export default function AdminOverviewPage() {
         fetch("/api/admin/ingestion?limit=10", { headers }),
         fetch("/api/admin/proxies?limit=5", { headers }),
       ]);
+
+      if (statsRes.status === 401 || statsRes.status === 403) {
+        setError(statsRes.status === 403 ? "forbidden" : "unauthorized");
+        setLoading(false);
+        return;
+      }
 
       if (statsRes.ok) setStats(await statsRes.json());
       if (revenueRes.ok) setRevenue(await revenueRes.json());
@@ -119,12 +133,28 @@ export default function AdminOverviewPage() {
       setLoading(false);
     }
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getAccessToken]);
+  }, [ready, authenticated, getHeaders, period]);
 
   function handlePeriodChange(p: Period) {
     setPeriod(p);
     fetchStats(p);
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 md:p-8">
+        <div className="max-w-[1200px] mx-auto text-center py-20">
+          <h1 className="text-2xl font-bold text-white mb-3">
+            {error === "forbidden" ? "Access Denied" : "Sign In Required"}
+          </h1>
+          <p className="text-gray text-sm">
+            {error === "forbidden"
+              ? "Your account doesn't have admin access."
+              : "Sign in with an admin account to view this dashboard."}
+          </p>
+        </div>
+      </div>
+    );
   }
 
   if (loading) {
