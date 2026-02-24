@@ -171,8 +171,9 @@ export async function POST(request: Request) {
         await addMessage(activeConversationId, 'assistant', text, shouldFlag);
       }
 
-      // Generate a smart title for the first exchange
-      if (activeConversationId && !conversationId && lastUserMessage?.content) {
+      // Generate title on the first user message, regardless of how the conversation was created
+      const isFirstExchange = messages.filter((m: { role: string }) => m.role === 'user').length <= 1;
+      if (activeConversationId && isFirstExchange && lastUserMessage?.content) {
         const title = await generateChatTitle(lastUserMessage.content, text ?? '');
         await updateConversationTitle(activeConversationId, title);
       }
