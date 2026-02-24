@@ -51,7 +51,7 @@ export async function claimWethFees(
     assertEnvPresent(['DEPLOYER_PRIVATE_KEY'], 'token.fees');
   }
 
-  const account = privateKeyToAccount(DEPLOYER_PRIVATE_KEY);
+  const account = privateKeyToAccount(DEPLOYER_PRIVATE_KEY!);
   const walletClient = createWalletClient({
     account,
     chain: base,

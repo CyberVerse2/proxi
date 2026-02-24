@@ -14,7 +14,7 @@ export function useChatCredits(
   handle: string,
   privyId: string | undefined,
   messageCount: number,
-  setPaymentRequired: (value: 'insufficient_tokens' | 'payment_failed' | 'not_authenticated' | null) => void
+  setPaymentRequired: (value: 'insufficient_tokens' | 'wallet_required' | 'payment_failed' | null) => void
 ) {
   const [credits, setCredits] = useState<CreditsData | null>(null);
 

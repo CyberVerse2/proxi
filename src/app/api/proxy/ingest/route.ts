@@ -5,6 +5,7 @@ import {
   getProxyByCreatorId,
   getProxyByHandle,
   createProxy,
+  updateProxy,
 } from "@/lib/db/queries";
 import { getUserByUsername } from "@/lib/x/client";
 
@@ -75,6 +76,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ proxyId: proxy.id });
   } catch (error) {
     console.error("[setup] Failed to trigger ingestion:", error);
+    await updateProxy(proxy.id, { status: "failed" }).catch(() => {});
     return NextResponse.json(
       { error: "Failed to start ingestion." },
       { status: 500 }

@@ -18,35 +18,42 @@ import { generateStructured } from "./structured";
 /* ------------------------------------------------------------------ */
 
 const styleSchema = z.object({
-  tone: z.string().describe("Overall writing tone in 1-2 sentences, with specific evidence"),
-  vocabulary: z.array(z.string()).describe("Characteristic words/phrases they use repeatedly — only include words seen at least 3 times"),
-  sentencePatterns: z.array(z.string()).describe("Pattern descriptions with at least one example per pattern"),
-  punctuationHabits: z.array(z.string()).describe("Observed punctuation habits — only include habits seen multiple times"),
-  capitalizationStyle: z.string().describe("e.g. 'all lowercase', 'sentence case', 'random ALL CAPS for emphasis'"),
-  emojiUsage: z.string().describe("Frequency and types of emoji use, or 'not observed' if absent"),
+  tone: z.string().describe("Overall writing tone in 1-2 sentences, with specific evidence").default("not observed"),
+  vocabulary: z.array(z.string()).describe("Characteristic words/phrases they use repeatedly — only include words seen at least 3 times").default([]),
+  sentencePatterns: z.array(z.string()).describe("Pattern descriptions with at least one example per pattern").default([]),
+  punctuationHabits: z.array(z.string()).describe("Observed punctuation habits — only include habits seen multiple times").default([]),
+  capitalizationStyle: z.string().describe("e.g. 'all lowercase', 'sentence case', 'random ALL CAPS for emphasis'").default("not observed"),
+  emojiUsage: z.string().describe("Frequency and types of emoji use, or 'not observed' if absent").default("not observed"),
 });
 
 const toneMapSchema = z.object({
-  emotionalRange: z.string().describe("Spectrum of emotions visible in their writing, citing specific shifts"),
-  humorStyle: z.string().describe("How they use humor — sarcasm, absurdism, self-deprecation, etc. 'not observed' if rare"),
+  emotionalRange: z.string().describe("Spectrum of emotions visible in their writing, citing specific shifts").default("not observed"),
+  humorStyle: z.string().describe("How they use humor — sarcasm, absurdism, self-deprecation, etc. 'not observed' if rare").default("not observed"),
   toneMap: z.object({
-    humor: z.string().describe("How they write when being funny, or 'not observed'"),
-    serious: z.string().describe("How they write in serious/analytical mode, or 'not observed'"),
-    excited: z.string().describe("How they write when hyped or celebrating, or 'not observed'"),
-    frustrated: z.string().describe("How they write when annoyed or angry, or 'not observed'"),
-    technical: z.string().describe("How they write about domain expertise, or 'not observed'"),
-    casual: z.string().describe("How they write in low-stakes everyday conversation, or 'not observed'"),
+    humor: z.string().describe("How they write when being funny, or 'not observed'").default("not observed"),
+    serious: z.string().describe("How they write in serious/analytical mode, or 'not observed'").default("not observed"),
+    excited: z.string().describe("How they write when hyped or celebrating, or 'not observed'").default("not observed"),
+    frustrated: z.string().describe("How they write when annoyed or angry, or 'not observed'").default("not observed"),
+    technical: z.string().describe("How they write about domain expertise, or 'not observed'").default("not observed"),
+    casual: z.string().describe("How they write in low-stakes everyday conversation, or 'not observed'").default("not observed"),
+  }).default({
+    humor: "not observed",
+    serious: "not observed",
+    excited: "not observed",
+    frustrated: "not observed",
+    technical: "not observed",
+    casual: "not observed",
   }),
 });
 
 const signatureSchema = z.object({
-  catchphrases: z.array(z.string()).describe("Recurring multi-word phrases or expressions they use 3+ times — quoted exactly"),
-  openers: z.array(z.string()).describe("How they typically start posts — only patterns seen multiple times"),
-  closers: z.array(z.string()).describe("How they typically end posts — only patterns seen multiple times"),
-  rhetoricalDevices: z.array(z.string()).describe("e.g. 'lists of three', 'builds to a punchline', 'asks then answers own question'"),
-  uniqueTraits: z.array(z.string()).describe("Any other distinctive quirks — made-up words, formatting, abbreviations"),
-  topicPreferences: z.array(z.string()).describe("Ordered list of 5-10 most discussed topics"),
-  communicationStyle: z.string().describe("1-2 sentence summary of their overall communication approach"),
+  catchphrases: z.array(z.string()).describe("Recurring multi-word phrases or expressions they use 3+ times — quoted exactly").default([]),
+  openers: z.array(z.string()).describe("How they typically start posts — only patterns seen multiple times").default([]),
+  closers: z.array(z.string()).describe("How they typically end posts — only patterns seen multiple times").default([]),
+  rhetoricalDevices: z.array(z.string()).describe("e.g. 'lists of three', 'builds to a punchline', 'asks then answers own question'").default([]),
+  uniqueTraits: z.array(z.string()).describe("Any other distinctive quirks — made-up words, formatting, abbreviations").default([]),
+  topicPreferences: z.array(z.string()).describe("Ordered list of 5-10 most discussed topics").default([]),
+  communicationStyle: z.string().describe("1-2 sentence summary of their overall communication approach").default("not observed"),
 });
 
 /* ------------------------------------------------------------------ */
