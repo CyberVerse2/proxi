@@ -1,16 +1,18 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowUp, Square, ChevronDown, Coins } from 'lucide-react';
 import { useChat } from '@/hooks/use-chat';
 import { useAuth } from '@/hooks/use-auth';
 import Image from 'next/image';
 import { ReviewModal } from './review-modal';
+import { ChatBackground } from './chat-background';
+import { ChatHeader } from './chat-header';
+import { useChatCredits } from './use-chat-credits';
 import {
   DEFAULT_AVATAR,
-  FREE_MESSAGES_PER_PROXY,
-  LOW_MESSAGE_THRESHOLD
+  FREE_MESSAGES_PER_PROXY
 } from '@/lib/config/constants';
 
 interface ChatClientProps {
@@ -52,41 +54,7 @@ export function ChatClient({
   const bottomRef = useRef<HTMLDivElement>(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
 
-  // Message credits
-  const [credits, setCredits] = useState<{
-    freeRemaining: number;
-    freeLimit: number;
-    hasTokens: boolean;
-    messagesOwned: number;
-    unlimited: boolean;
-  } | null>(null);
-
-  // Fetch credits on mount, after each message, and on window focus (e.g. returning from buying tokens)
-  const fetchCredits = useCallback(() => {
-    const params = new URLSearchParams({ proxyHandle: handle });
-    if (user?.id) params.set('privyId', user.id);
-    fetch(`/api/chat/credits?${params}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setCredits(data);
-        // Clear payment block if user now has tokens or free messages
-        if (data.hasTokens || data.freeRemaining > 0 || data.unlimited) {
-          setPaymentRequired(null);
-        }
-      })
-      .catch(() => {});
-  }, [handle, user?.id, setPaymentRequired]);
-
-  useEffect(() => {
-    fetchCredits();
-  }, [fetchCredits, messages.length]);
-
-  // Re-check credits when user returns to the tab (e.g. after buying tokens)
-  useEffect(() => {
-    const onFocus = () => fetchCredits();
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
-  }, [fetchCredits]);
+  const { credits } = useChatCredits(handle, user?.id, messages.length, setPaymentRequired);
 
   // Review modal state
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -175,125 +143,14 @@ export function ChatClient({
 
   return (
     <div className="h-screen w-full relative overflow-hidden bg-black ">
-      {/* ============ Full-viewport background ============ */}
-      <div
-        aria-hidden
-        className="fixed inset-0 z-0 pointer-events-none"
-        style={{ overflow: 'hidden' }}
-      >
-        {/* Layer 1: blurred PFP fills entire viewport (ambient sides) */}
-        <Image
-          src={avatar}
-          alt=""
-          fill
-          className="object-cover blur-3xl scale-125 opacity-30"
-          style={{ pointerEvents: 'none', userSelect: 'none' }}
-          priority
-        />
-        {/* Layer 2: clearer PFP in center with radial fade — NOT too bright */}
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `url(${avatar})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center 30%',
-            opacity: 0.35,
-            maskImage: 'radial-gradient(ellipse 50% 45% at 50% 35%, black 0%, transparent 75%)',
-            WebkitMaskImage:
-              'radial-gradient(ellipse 50% 45% at 50% 35%, black 0%, transparent 75%)',
-            pointerEvents: 'none',
-            userSelect: 'none'
-          }}
-        />
-        {/* Layer 3: dark overlay — heavier at edges, medium in center */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              'radial-gradient(ellipse 55% 50% at 50% 35%, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.85) 100%)',
-            pointerEvents: 'none',
-            userSelect: 'none'
-          }}
-        />
-      </div>
+      <ChatBackground avatar={avatar} />
 
       {/* ============ Chat interface (centered, h-screen) ============ */}
       <div className="relative z-10 flex flex-col h-full items-center bottom-0">
         <div className="w-full max-w-[720px] flex flex-col h-full ">
           {/* ─── Hero header (fixed at top) ─── */}
           {/* --- Chat Header (Fixed) --- */}
-          <div
-            className="flex flex-col items-center justify-center px-4 pt-4 pb-2 text-center shrink-0 "
-            style={{ position: 'sticky', top: 0, zIndex: 15 }}
-          >
-            <Image
-              src={avatar}
-              alt={name}
-              width={64}
-              height={64}
-              className="rounded-full object-cover border border-white/10 shadow-sm"
-              style={{ minWidth: 52, minHeight: 52 }}
-            />
-            <h1 className="text-white font-semibold text-lg mt-2">{name}</h1>
-            {bio && (
-              <p className="text-white/60 text-sm mt-1 max-w-[380px] mx-auto line-clamp-1">{bio}</p>
-            )}
-            {credits &&
-              !credits.unlimited &&
-              (() => {
-                // Token holder — always show count, highlight when running low
-                if (credits.hasTokens) {
-                  const isLow = credits.messagesOwned < LOW_MESSAGE_THRESHOLD;
-                  return (
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className={`text-xs ${isLow ? 'text-yellow-400/60' : 'text-white/40'}`}>
-                        {credits.messagesOwned.toLocaleString()} message
-                        {credits.messagesOwned !== 1 ? 's' : ''} remaining
-                      </span>
-                      {isLow && (
-                        <Link
-                          href={`/${handle}#trade`}
-                          className="text-[11px] font-semibold text-black bg-lime rounded-full px-2.5 py-0.5 hover:bg-lime/90 transition-colors"
-                        >
-                          Buy
-                        </Link>
-                      )}
-                    </div>
-                  );
-                }
-
-                // Free messages remaining
-                if (credits.freeRemaining > 0) {
-                  return (
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-white/30 text-xs">
-                        {credits.freeRemaining} free message{credits.freeRemaining !== 1 ? 's' : ''}{' '}
-                        remaining
-                      </span>
-                      <Link
-                        href={`/${handle}#trade`}
-                        className="text-[11px] font-semibold text-black bg-lime rounded-full px-2.5 py-0.5 hover:bg-lime/90 transition-colors"
-                      >
-                        Buy
-                      </Link>
-                    </div>
-                  );
-                }
-
-                // Out of free messages, no tokens
-                return (
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="text-yellow-400/60 text-xs">0 messages remaining</span>
-                    <Link
-                      href={`/${handle}#trade`}
-                      className="text-[11px] font-semibold text-black bg-lime rounded-full px-2.5 py-0.5 hover:bg-lime/90 transition-colors"
-                    >
-                      Buy
-                    </Link>
-                  </div>
-                );
-              })()}
-          </div>
+          <ChatHeader avatar={avatar} name={name} bio={bio} credits={credits} handle={handle} />
 
           {/* Scroll-to-bottom FAB */}
           {showScrollBtn && (

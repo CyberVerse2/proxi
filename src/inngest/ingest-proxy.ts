@@ -15,6 +15,9 @@ import { db } from "@/lib/db";
 import { ingestionLogs } from "@/lib/db/schema";
 import { deployProxyToken } from "@/lib/chain/token";
 import { getProxyById } from "@/lib/db/queries";
+import { and, desc, eq } from 'drizzle-orm';
+import { createLogger } from '@/lib/observability/logger';
+import { assertEnvPresent } from '@/lib/config/env';
 
 export const ingestProxy = inngest.createFunction(
   {
@@ -32,10 +35,34 @@ export const ingestProxy = inngest.createFunction(
       walletAddress: string;
     };
 
-    console.log("[ingest] Starting proxy ingestion", { proxyId, xHandle, maxTweets });
+    const logger = createLogger('ingest-proxy');
+    logger.info('Starting proxy ingestion', { proxyId, xHandle, maxTweets, attempt });
+
+    const existingComplete = await db
+      .select()
+      .from(ingestionLogs)
+      .where(and(eq(ingestionLogs.proxyId, proxyId), eq(ingestionLogs.step, 'complete')))
+      .orderBy(desc(ingestionLogs.startedAt))
+      .limit(1);
+    const currentProxy = await getProxyById(proxyId);
+    if (existingComplete.length > 0 && currentProxy?.status === 'live' && currentProxy.tokenAddress) {
+      logger.info('Skipping duplicate ingestion event for already-live proxy', {
+        proxyId,
+        tokenAddress: currentProxy.tokenAddress
+      });
+      return {
+        tweetsCollected: 0,
+        threadsDetected: 0,
+        afterFilter: 0,
+        topSelected: 0,
+        chunksStored: 0,
+        voiceProfile: currentProxy.voiceProfile as Record<string, unknown>,
+        coreBrain: currentProxy.coreBrain as Record<string, unknown>
+      };
+    }
 
     const logStep = async (step: string, detail: string) => {
-      console.log(`[ingest] [${step}] ${detail}`, { proxyId, step });
+      logger.info(`[${step}] ${detail}`, { proxyId, step });
       await db.insert(ingestionLogs).values({
         proxyId,
         step,
@@ -68,11 +95,11 @@ export const ingestProxy = inngest.createFunction(
         finishedAt: new Date(),
       });
 
-      console.log("[ingest] Proxy ingestion complete", {
+      logger.info('Proxy ingestion complete', {
         proxyId,
         xHandle,
         tweetsCollected: result.tweetsCollected,
-        topSelected: result.topSelected,
+        topSelected: result.topSelected
       });
 
       // Deploy token — required for proxy to go live
@@ -81,16 +108,17 @@ export const ingestProxy = inngest.createFunction(
 
       if (proxy?.tokenAddress) {
         // Already deployed (e.g. retry after partial success)
-        console.log("[ingest] Token already deployed, skipping", {
+        logger.info('Token already deployed, skipping', {
           proxyId,
-          tokenAddress: proxy.tokenAddress,
+          tokenAddress: proxy.tokenAddress
         });
         tokenInfo = {
           tokenAddress: proxy.tokenAddress,
           ticker: proxy.ticker ?? xHandle.toUpperCase().slice(0, 5),
         };
       } else {
-        console.log("[ingest] Deploying token for proxy", { proxyId, walletAddress });
+        assertEnvPresent(['DEPLOYER_PRIVATE_KEY'], 'ingest-proxy.token-deploy');
+        logger.info('Deploying token for proxy', { proxyId, walletAddress });
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://proxi.fun";
         const displayName = proxy?.displayName ?? xHandle;
         const tokenResult = await deployProxyToken({
@@ -105,11 +133,11 @@ export const ingestProxy = inngest.createFunction(
           tokenAddress: tokenResult.tokenAddress,
           ticker: tokenResult.ticker,
         };
-        console.log("[ingest] Token deployed", {
+        logger.info('Token deployed', {
           proxyId,
           tokenAddress: tokenResult.tokenAddress,
           ticker: tokenResult.ticker,
-          txHash: tokenResult.txHash,
+          txHash: tokenResult.txHash
         });
       }
 
@@ -117,11 +145,11 @@ export const ingestProxy = inngest.createFunction(
       if (tweetId) {
         try {
           await sendCompletionReply(xHandle, proxyId, tweetId, tokenInfo);
-          console.log("[ingest] Completion tweet sent", { xHandle, tweetId, tokenInfo });
+          logger.info('Completion tweet sent', { xHandle, tweetId, tokenInfo });
         } catch (replyErr) {
           // Don't fail the whole task if the tweet fails
-          console.warn("[ingest] Failed to send completion tweet", {
-            error: replyErr instanceof Error ? replyErr.message : String(replyErr),
+          logger.warn('Failed to send completion tweet', {
+            error: replyErr instanceof Error ? replyErr.message : String(replyErr)
           });
         }
       }
@@ -145,12 +173,12 @@ export const ingestProxy = inngest.createFunction(
       const maxAttempts = 3;
       const isLastAttempt = attempt >= maxAttempts;
 
-      console.error("[ingest] Proxy ingestion failed", {
+      logger.error('Proxy ingestion failed', {
         proxyId,
         xHandle,
         attempt,
         isLastAttempt,
-        error: error instanceof Error ? error.message : String(error),
+        error: error instanceof Error ? error.message : String(error)
       });
 
       // On final attempt: mark proxy as failed and notify the user
