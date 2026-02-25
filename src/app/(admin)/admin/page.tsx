@@ -80,9 +80,11 @@ export default function AdminOverviewPage() {
   const [recentLogs, setRecentLogs] = useState<IngestionLog[]>([]);
   const [recentProxies, setRecentProxies] = useState<RecentProxy[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
   const [period, setPeriod] = useState<Period>("all");
   const [statsLoading, setStatsLoading] = useState(false);
+
+  const authError = ready && !authenticated ? "unauthorized" : null;
 
   const getHeaders = useCallback(async () => {
     const token = await getAccessToken?.();
@@ -100,12 +102,11 @@ export default function AdminOverviewPage() {
   }, [getHeaders]);
 
   useEffect(() => {
-    if (!ready) return;
-    if (!authenticated) { setLoading(false); setError("unauthorized"); return; }
+    if (!ready || !authenticated) return;
 
     async function load() {
       const headers = await getHeaders();
-      if (!headers) { setLoading(false); setError("unauthorized"); return; }
+      if (!headers) { setLoading(false); setApiError("unauthorized"); return; }
 
       const [statsRes, revenueRes, logsRes, proxiesRes] = await Promise.all([
         fetch(`/api/admin/stats?period=${period}`, { headers }),
@@ -115,7 +116,7 @@ export default function AdminOverviewPage() {
       ]);
 
       if (statsRes.status === 401 || statsRes.status === 403) {
-        setError(statsRes.status === 403 ? "forbidden" : "unauthorized");
+        setApiError(statsRes.status === 403 ? "forbidden" : "unauthorized");
         setLoading(false);
         return;
       }
@@ -134,6 +135,8 @@ export default function AdminOverviewPage() {
     }
     load();
   }, [ready, authenticated, getHeaders, period]);
+
+  const error = authError ?? apiError;
 
   function handlePeriodChange(p: Period) {
     setPeriod(p);
@@ -164,7 +167,7 @@ export default function AdminOverviewPage() {
           <h1 className="text-2xl font-bold text-white mb-6">Admin Dashboard</h1>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-[100px] rounded-xl bg-dark2 border border-white/[0.06] animate-pulse" />
+              <div key={i} className="h-[100px] rounded-xl bg-dark2 border border-white/6 animate-pulse" />
             ))}
           </div>
         </div>
@@ -189,7 +192,7 @@ export default function AdminOverviewPage() {
                   "px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer border",
                   period === p.value
                     ? "bg-lime/10 text-lime border-lime/20"
-                    : "bg-white/[0.04] text-gray border-white/[0.06] hover:text-white"
+                    : "bg-white/4 text-gray border-white/6 hover:text-white"
                 )}
               >
                 {p.label}
@@ -295,10 +298,10 @@ export default function AdminOverviewPage() {
                 {Object.entries(stats.proxyByStatus).map(([status, count]) => (
                   <div
                     key={status}
-                    className="flex items-center gap-2 bg-white/[0.03] rounded-lg px-4 py-3 border border-white/[0.06]"
+                    className="flex items-center gap-2 bg-white/3 rounded-lg px-4 py-3 border border-white/6"
                   >
                     <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${STATUS_COLORS[status] ?? "bg-white/[0.06] text-gray border-white/[0.06]"}`}
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${STATUS_COLORS[status] ?? "bg-white/6 text-gray border-white/6"}`}
                     >
                       {status}
                     </span>
@@ -324,7 +327,7 @@ export default function AdminOverviewPage() {
                   {recentLogs.map((log) => (
                     <div
                       key={log.id}
-                      className="flex items-center justify-between py-2 border-b border-white/[0.04] last:border-0"
+                      className="flex items-center justify-between py-2 border-b border-white/4:border-0"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <span className="text-white text-sm font-medium truncate">
@@ -334,7 +337,7 @@ export default function AdminOverviewPage() {
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${STATUS_COLORS[log.status] ?? "bg-white/[0.06] text-gray border-white/[0.06]"}`}
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${STATUS_COLORS[log.status] ?? "bg-white/6-gray border-white/6"}`}
                         >
                           {log.status}
                         </span>
@@ -362,7 +365,7 @@ export default function AdminOverviewPage() {
                   {recentProxies.map((proxy) => (
                     <div
                       key={proxy.id}
-                      className="flex items-center justify-between py-2 border-b border-white/[0.04] last:border-0"
+                      className="flex items-center justify-between py-2 border-b border-white/4 last:border-0"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <span className="text-white text-sm font-medium truncate">
@@ -374,7 +377,7 @@ export default function AdminOverviewPage() {
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${STATUS_COLORS[proxy.status] ?? "bg-white/[0.06] text-gray border-white/[0.06]"}`}
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${STATUS_COLORS[proxy.status] ?? "bg-white/6 text-gray border-white/6"}`}
                         >
                           {proxy.status}
                         </span>
