@@ -1,6 +1,6 @@
 import { getWalletIdByAddress, sendTransactionViaPrivy } from '@/lib/auth/privy';
 import { createPublicClient, encodeFunctionData, http, parseAbi } from 'viem';
-import { base } from 'viem/chains';
+import { bsc } from 'viem/chains';
 import { RPC_URL } from './internal';
 
 const ERC20_TRANSFER_ABI = parseAbi([
@@ -64,7 +64,7 @@ export async function getOnChainTokenBalance(
   walletAddress: `0x${string}`
 ): Promise<bigint> {
   const client = createPublicClient({
-    chain: base,
+    chain: bsc,
     transport: http(RPC_URL)
   });
 

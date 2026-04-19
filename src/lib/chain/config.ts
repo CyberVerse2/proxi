@@ -1,9 +1,9 @@
 import { createPublicClient, http } from "viem";
-import { base } from "viem/chains";
+import { bsc } from "viem/chains";
 
-export const baseClient = createPublicClient({
-  chain: base,
-  transport: http(process.env.NEXT_PUBLIC_BASE_RPC_URL ?? "https://mainnet.base.org"),
+export const bscClient = createPublicClient({
+  chain: bsc,
+  transport: http(process.env.NEXT_PUBLIC_BSC_RPC_URL ?? "https://bsc-dataseed.binance.org"),
 });
 
-export { base };
+export { bsc };

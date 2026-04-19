@@ -167,10 +167,27 @@ export const proxyTokens = pgTable("proxy_tokens", {
   id: uuid("id").defaultRandom().primaryKey(),
   proxyId: uuid("proxy_id").references(() => proxies.id).notNull(),
   tokenAddress: varchar("token_address", { length: 42 }).notNull(),
-  chain: varchar("chain", { length: 20 }).default("base").notNull(),
+  chain: varchar("chain", { length: 20 }).default("bsc").notNull(),
   deployedAt: timestamp("deployed_at").defaultNow().notNull(),
   metadata: jsonb("metadata"),
 });
+
+/* ---------- creator earnings payouts ---------- */
+export const creatorEarningsPayouts = pgTable("creator_earnings_payouts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  proxyId: uuid("proxy_id").references(() => proxies.id).notNull(),
+  tokenAddress: varchar("token_address", { length: 42 }).notNull(),
+  creatorWalletAddress: varchar("creator_wallet_address", { length: 42 }).notNull(),
+  quoteTokenAddress: varchar("quote_token_address", { length: 42 }),
+  grossAmount: varchar("gross_amount", { length: 255 }).notNull(),
+  creatorAmount: varchar("creator_amount", { length: 255 }).notNull(),
+  platformAmount: varchar("platform_amount", { length: 255 }).notNull(),
+  txHash: varchar("tx_hash", { length: 66 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("idx_creator_earnings_payouts_proxy").on(t.proxyId),
+  index("idx_creator_earnings_payouts_token").on(t.tokenAddress),
+]);
 
 /* ---------- ingestion_logs ---------- */
 export const ingestionLogs = pgTable("ingestion_logs", {

@@ -216,9 +216,9 @@ export async function sendCompletionReply(
   await sendTweet(
     `@${handle} Your proxy is live. People can now chat with it: ${appUrl}/${handle.toLowerCase()}
 
-    Claim your proxy to make it smarter and start earning fees: ${appUrl}/${handle.toLowerCase()}/claim
+    Claim your proxy to make it smarter and start earning creator payouts: ${appUrl}/${handle.toLowerCase()}/claim
 
-    Your proxy token: https://dexscreener.com/base/${tokenInfo?.tokenAddress})`,
+    Your proxy token: https://dexscreener.com/bsc/${tokenInfo?.tokenAddress})`,
     originalTweetId
   );
   void proxyId; // Used for linking in production

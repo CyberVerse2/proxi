@@ -39,10 +39,11 @@ interface RecentProxy {
 }
 
 interface Revenue {
-  claimedWeth: string;
-  unclaimedWeth: string;
-  totalWeth: string;
-  ethPriceUsd: number;
+  claimedFounderFees: string;
+  unclaimedFounderFees: string;
+  totalFounderFees: string;
+  creatorAvailable: string;
+  creatorPaidOut: string;
   totalRevenueUsd: number;
 }
 
@@ -249,10 +250,10 @@ export default function AdminOverviewPage() {
         {revenue && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Platform Revenue (LP Fees)</CardTitle>
+              <CardTitle className="text-base">Platform Revenue (Founder Tax)</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div className="space-y-1">
                   <span className="text-gray text-xs">Total Revenue</span>
                   <p className="text-white text-2xl font-bold">
@@ -260,29 +261,30 @@ export default function AdminOverviewPage() {
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <span className="text-gray text-xs">Total WETH Earned</span>
+                  <span className="text-gray text-xs">Total Founder Fees</span>
                   <p className="text-white text-lg font-semibold">
-                    {parseFloat(revenue.totalWeth).toFixed(6)} WETH
+                    {parseFloat(revenue.totalFounderFees).toFixed(6)} USDC
                   </p>
                 </div>
                 <div className="space-y-1">
                   <span className="text-gray text-xs">Claimed</span>
                   <p className="text-emerald-400 text-lg font-semibold">
-                    {parseFloat(revenue.claimedWeth).toFixed(6)} WETH
+                    {parseFloat(revenue.claimedFounderFees).toFixed(6)} USDC
                   </p>
                 </div>
                 <div className="space-y-1">
                   <span className="text-gray text-xs">Unclaimed</span>
                   <p className="text-yellow-400 text-lg font-semibold">
-                    {parseFloat(revenue.unclaimedWeth).toFixed(6)} WETH
+                    {parseFloat(revenue.unclaimedFounderFees).toFixed(6)} USDC
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-gray text-xs">Creator Available</span>
+                  <p className="text-lime text-lg font-semibold">
+                    {parseFloat(revenue.creatorAvailable).toFixed(6)} USDC
                   </p>
                 </div>
               </div>
-              {revenue.ethPriceUsd > 0 && (
-                <p className="text-gray/50 text-[11px] mt-3">
-                  ETH price: ${revenue.ethPriceUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                </p>
-              )}
             </CardContent>
           </Card>
         )}

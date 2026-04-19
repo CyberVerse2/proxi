@@ -55,11 +55,11 @@ export function ClaimClient({
     authenticated &&
     xHandle?.toLowerCase() === proxy.xHandle.toLowerCase();
   const isClaimed = !!proxy.creatorId;
-  const baseScanUrl = proxy.tokenAddress
-    ? `https://basescan.org/token/${proxy.tokenAddress}`
+  const bscScanUrl = proxy.tokenAddress
+    ? `https://bscscan.com/token/${proxy.tokenAddress}`
     : null;
   const dexScreenerUrl = proxy.tokenAddress
-    ? `https://dexscreener.com/base/${proxy.tokenAddress}`
+    ? `https://dexscreener.com/bsc/${proxy.tokenAddress}`
     : null;
 
   const handleClaim = async () => {
@@ -182,7 +182,7 @@ export function ClaimClient({
                   />
                 </button>
                 <a
-                  href={baseScanUrl!}
+                  href={bscScanUrl!}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-gray hover:text-white transition-colors"
@@ -249,7 +249,7 @@ export function ClaimClient({
                   Claim Your Proxy
                 </h2>
                 <p className="text-sm text-gray">
-                  Are you @{proxy.xHandle}? Sign in with X to claim your earned fees ({formatCompact(feeData?.totalUsd ?? 0)} so far) and start earning more.
+                  Are you @{proxy.xHandle}? Sign in with X to claim your creator earnings ({formatCompact(feeData?.totalUsd ?? 0)} so far) and start earning more.
                 </p>
               </div>
               <Button onClick={login} className="w-full rounded-xl h-11">
@@ -296,7 +296,7 @@ export function ClaimClient({
                 </h2>
                 <p className="text-sm text-gray">
                   Verified as @{xHandle}. Claim this proxy to start earning
-                  LP fees and customize your AI clone.
+                  creator payouts and customize your AI clone.
                 </p>
               </div>
 

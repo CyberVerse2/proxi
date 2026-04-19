@@ -1,22 +1,27 @@
 import { NextResponse } from "next/server";
-import { getProxyByHandle, getUserByXHandle } from "@/lib/db/queries";
+import { getProxyByHandle } from "@/lib/db/queries";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { claimWethFees } from "@/lib/chain/token";
-import { formatEther } from "viem";
+import { claimCreatorEarnings } from "@/lib/chain/token";
+import { getAuthUser, getPrivyWalletAddress } from "@/lib/auth/privy";
+import { formatUnits } from "viem";
+import { USDC_DECIMALS } from "@/lib/config/constants";
 
 /**
  * POST /api/claim-fees
- * Claim unclaimed WETH LP fees for a proxy's creator.
+ * Claim accrued creator earnings for a proxy.
  *
  * Body: { handle: string }
- *
- * The FeeLocker.claim() function is callable by anyone — the deployer wallet
- * pays gas, and the WETH goes directly to the creator's wallet.
  */
 export async function POST(request: Request) {
   try {
+    const authToken = request.headers.get("authorization")?.replace("Bearer ", "");
+    const authUser = await getAuthUser(authToken);
+    if (!authUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     const { handle } = body;
 
@@ -39,36 +44,33 @@ export async function POST(request: Request) {
       );
     }
 
-    // Look up creator's wallet: prefer creatorId, fall back to xHandle
-    let walletAddress: string | null = null;
+    const walletAddress = await getPrivyWalletAddress(authUser.userId);
+    if (!walletAddress) {
+      return NextResponse.json({ error: "Creator wallet not found" }, { status: 400 });
+    }
+
     if (proxy.creatorId) {
       const [creator] = await db
-        .select({ walletAddress: users.walletAddress })
+        .select({ walletAddress: users.walletAddress, privyId: users.privyId })
         .from(users)
         .where(eq(users.id, proxy.creatorId))
         .limit(1);
-      walletAddress = creator?.walletAddress ?? null;
-    } else {
-      const userByHandle = await getUserByXHandle(proxy.xHandle);
-      walletAddress = userByHandle?.walletAddress ?? null;
+      if (!creator || creator.privyId !== authUser.userId || creator.walletAddress?.toLowerCase() !== walletAddress.toLowerCase()) {
+        return NextResponse.json({ error: "You are not the owner of this proxy" }, { status: 403 });
+      }
     }
 
-    if (!walletAddress) {
-      return NextResponse.json(
-        { error: "Creator wallet not found" },
-        { status: 400 },
-      );
-    }
-
-    const result = await claimWethFees(
-      walletAddress as `0x${string}`,
-    );
+    const result = await claimCreatorEarnings({
+      proxyId: proxy.id,
+      tokenAddress: proxy.tokenAddress,
+      creatorWalletAddress: walletAddress as `0x${string}`,
+    });
 
     if (!result) {
       return NextResponse.json({
         success: true,
         claimed: false,
-        message: "No fees available to claim (below threshold)",
+        message: "No creator earnings available to claim yet",
       });
     }
 
@@ -76,14 +78,15 @@ export async function POST(request: Request) {
       success: true,
       claimed: true,
       txHash: result.txHash,
-      amount: formatEther(result.amount),
+      amount: formatUnits(result.creatorAmount, USDC_DECIMALS),
+      asset: "USDC",
     });
   } catch (err) {
     console.error("Claim fees error:", err);
     return NextResponse.json(
       {
         error:
-          err instanceof Error ? err.message : "Failed to claim fees",
+          err instanceof Error ? err.message : "Failed to claim creator earnings",
       },
       { status: 500 },
     );

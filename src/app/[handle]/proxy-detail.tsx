@@ -75,7 +75,8 @@ export function ProxyDetail({
     authenticated,
     xHandle: authXHandle,
     xDisplayName: authDisplayName,
-    xProfileImageUrl: authAvatar
+    xProfileImageUrl: authAvatar,
+    getAccessToken
   } = useAuth();
 
   const trade = useProxyTrade({
@@ -86,7 +87,8 @@ export function ProxyDetail({
   const claim = useProxyClaim({
     authenticated,
     login,
-    handle: proxy.xHandle
+    handle: proxy.xHandle,
+    getAccessToken
   });
   const reviewsState = useProxyReviews({
     initialReviews,
@@ -220,4 +222,3 @@ export function ProxyDetail({
     </div>
   );
 }
-

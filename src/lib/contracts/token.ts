@@ -1,4 +1,4 @@
-import type { BatchTokenVolume, FeeBreakdown, TokenMarketData } from '@/lib/chain/token';
+import type { BatchTokenVolume, CreatorEarningsBreakdown, TokenMarketData } from '@/lib/chain/token';
 
 export interface DeployTokenParamsContract {
   name: string;
@@ -19,10 +19,15 @@ export interface TokenDeployResultContract {
 
 export interface TokenDomainContract {
   deployProxyToken: (params: DeployTokenParamsContract) => Promise<TokenDeployResultContract>;
-  getAvailableWethFees: (feeOwner: `0x${string}`) => Promise<bigint>;
-  claimWethFees: (feeOwner: `0x${string}`) => Promise<{ txHash: string; amount: bigint } | null>;
-  getAllRewardRecipients: () => Promise<`0x${string}`[]>;
-  getTotalWethFees: (tokenAddress: string, feeRecipient: `0x${string}`) => Promise<FeeBreakdown>;
+  getProxyCreatorEarnings: (
+    tokenAddress: string,
+    feeRecipient: `0x${string}`
+  ) => Promise<CreatorEarningsBreakdown>;
+  claimCreatorEarnings: (params: {
+    proxyId: string;
+    tokenAddress: string;
+    creatorWalletAddress: `0x${string}`;
+  }) => Promise<{ txHash: string; creatorAmount: bigint; grossAmount: bigint; quoteTokenAddress: string | null } | null>;
   getTokenMarketData: (tokenAddress: string) => Promise<TokenMarketData>;
   fetchBatchDexScreenerData: (tokenAddresses: string[]) => Promise<BatchTokenVolume[]>;
   getTotalLiveVolume: () => Promise<{

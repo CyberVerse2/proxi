@@ -71,7 +71,7 @@ export function WithdrawModal({ onClose, onSuccess }: WithdrawModalProps) {
 
         <h2 className="text-white font-bold text-xl mb-1">Withdraw USDC</h2>
         <p className="text-gray text-base mb-5">
-          Send USDC from your Proxi wallet to an external address on Base.
+          Send BSC USDC from your Proxi wallet to an external address.
         </p>
 
         {txHash ? (
@@ -103,12 +103,12 @@ export function WithdrawModal({ onClose, onSuccess }: WithdrawModalProps) {
             </div>
 
             <a
-              href={`https://basescan.org/tx/${txHash}`}
+              href={`https://bscscan.com/tx/${txHash}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-lime text-sm hover:underline flex items-center gap-1.5"
             >
-              View on Basescan
+              View on BscScan
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
               </svg>
@@ -193,7 +193,7 @@ export function WithdrawModal({ onClose, onSuccess }: WithdrawModalProps) {
             </Button>
 
             <p className="text-gray/40 text-xs text-center">
-              Withdrawals are sent on Base network. Gas fees are sponsored.
+              Withdrawals are sent on BNB Smart Chain. Gas fees are sponsored.
             </p>
           </div>
         )}

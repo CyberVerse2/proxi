@@ -5,7 +5,7 @@ const ITEMS = [
   'Earn Forever',
   'Chat With Anyone',
   'Your Intelligence Uploaded',
-  'Powered By Base',
+  'Powered By BNB Chain',
   'Always Online',
 ];
 

@@ -31,7 +31,7 @@ export function HeroSection({ proxies = [] }: HeroSectionProps) {
       {/* Badge */}
       <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-lime/20 bg-lime/5 text-sm font-semibold text-lime mb-8 animate-fade-up">
         <span className="w-2 h-2 rounded-full bg-lime animate-blink" />
-        Live on Base
+        Live on BNB Smart Chain
       </div>
 
       {/* Headline */}
@@ -53,7 +53,7 @@ export function HeroSection({ proxies = [] }: HeroSectionProps) {
         style={{ animationDelay: '0.2s' }}
       >
         Create an AI clone of yourself that anyone can talk to.
-        Each clone gets its own token — you earn {CREATOR_FEE_PERCENT}% of fees forever.
+        Each clone gets its own token — you earn {CREATOR_FEE_PERCENT}% of founder-tax revenue forever.
       </p>
 
       {/* Buttons */}

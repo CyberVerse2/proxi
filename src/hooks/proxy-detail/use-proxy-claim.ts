@@ -5,11 +5,13 @@ import { useState } from 'react';
 export function useProxyClaim({
   authenticated,
   login,
-  handle
+  handle,
+  getAccessToken
 }: {
   authenticated: boolean;
   login: () => void;
   handle: string;
+  getAccessToken: (() => Promise<string | null>) | null;
 }) {
   const [claimLoading, setClaimLoading] = useState(false);
   const [claimResult, setClaimResult] = useState<{
@@ -28,21 +30,30 @@ export function useProxyClaim({
     setClaimLoading(true);
     setClaimResult(null);
     try {
+      const authToken = await getAccessToken?.();
+      if (!authToken) {
+        setClaimResult({ success: false, message: 'Sign in again to claim creator earnings' });
+        return;
+      }
+
       const res = await fetch('/api/claim-fees', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
         body: JSON.stringify({ handle })
       });
       const data = await res.json();
       if (!res.ok) {
-        setClaimResult({ success: false, message: data.error ?? 'Failed to claim fees' });
+        setClaimResult({ success: false, message: data.error ?? 'Failed to claim creator earnings' });
       } else if (data.claimed) {
         setClaimResult({ success: true, txHash: data.txHash, amount: data.amount });
       } else {
-        setClaimResult({ success: true, message: data.message ?? 'No fees to claim' });
+        setClaimResult({ success: true, message: data.message ?? 'No creator earnings to claim' });
       }
     } catch {
-      setClaimResult({ success: false, message: 'Failed to claim fees' });
+      setClaimResult({ success: false, message: 'Failed to claim creator earnings' });
     } finally {
       setClaimLoading(false);
     }

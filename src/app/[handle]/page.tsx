@@ -6,28 +6,15 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import {
-  getTotalWethFees,
+  getProxyCreatorEarnings,
   getTokenMarketData,
   type TokenMarketData,
 } from "@/lib/chain/token";
-import { formatEther } from "viem";
+import { formatUnits } from "viem";
+import { USDC_DECIMALS } from "@/lib/config/constants";
 
 interface Props {
   params: Promise<{ handle: string }>;
-}
-
-async function fetchEthPriceUsd(): Promise<number> {
-  try {
-    const res = await fetch(
-      "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd",
-      { next: { revalidate: 300 } },
-    );
-    if (!res.ok) return 0;
-    const data = await res.json();
-    return data?.ethereum?.usd ?? 0;
-  } catch {
-    return 0;
-  }
 }
 
 export interface FeeData {
@@ -73,20 +60,15 @@ export default async function ProxyDetailPage({ params }: Props) {
 
       if (!walletAddress) return null;
 
-      const [fees, ethPrice] = await Promise.all([
-        getTotalWethFees(
-          proxy.tokenAddress!,
-          walletAddress as `0x${string}`,
-        ),
-        fetchEthPriceUsd(),
-      ]);
-
-      const totalEth = parseFloat(formatEther(fees.total));
+      const fees = await getProxyCreatorEarnings(
+        proxy.tokenAddress!,
+        walletAddress as `0x${string}`,
+      );
       return {
-        claimed: formatEther(fees.claimed),
-        unclaimed: formatEther(fees.unclaimed),
-        total: formatEther(fees.total),
-        totalUsd: totalEth * ethPrice,
+        claimed: formatUnits(fees.creatorShareClaimed, USDC_DECIMALS),
+        unclaimed: formatUnits(fees.creatorShareAvailable, USDC_DECIMALS),
+        total: formatUnits(fees.creatorShareTotal, USDC_DECIMALS),
+        totalUsd: parseFloat(formatUnits(fees.creatorShareTotal, USDC_DECIMALS)),
       };
     })().catch(() => null);
 

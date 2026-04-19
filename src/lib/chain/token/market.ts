@@ -1,6 +1,5 @@
 import { db } from '@/lib/db';
 import { proxyTokens } from '@/lib/db/schema';
-import { ALCHEMY_API_KEY } from './internal';
 
 export interface TokenMarketData {
   /* Metadata */
@@ -27,25 +26,20 @@ export interface TokenMarketData {
 
 /**
  * Fetch comprehensive token market data.
- * Uses Alchemy for metadata + price, DexScreener for DEX-specific data
- * (volume, liquidity, pair info), and Alchemy Prices API for history.
+ * Uses DexScreener for price, liquidity, and pair data.
  */
 export async function getTokenMarketData(tokenAddress: string): Promise<TokenMarketData> {
-  const [metadata, alchemyPrice, dexData, priceHistory] = await Promise.all([
-    fetchAlchemyTokenMetadata(tokenAddress).catch(() => null),
-    fetchAlchemyTokenPrice(tokenAddress).catch(() => null),
+  const [dexData, priceHistory] = await Promise.all([
     fetchDexScreenerData(tokenAddress).catch(() => null),
-    fetchAlchemyPriceHistory(tokenAddress).catch(() => [])
+    fetchDexScreenerPriceHistory(tokenAddress).catch(() => [])
   ]);
-
-  // Prefer Alchemy price, fall back to DexScreener
-  const priceUsd = alchemyPrice ?? (dexData?.priceUsd ? parseFloat(dexData.priceUsd) : 0);
+  const priceUsd = dexData?.priceUsd ? parseFloat(dexData.priceUsd) : 0;
 
   return {
-    name: metadata?.name ?? dexData?.name ?? null,
-    symbol: metadata?.symbol ?? dexData?.symbol ?? null,
-    decimals: metadata?.decimals ?? null,
-    logo: metadata?.logo ?? dexData?.imageUrl ?? null,
+    name: dexData?.name ?? null,
+    symbol: dexData?.symbol ?? null,
+    decimals: dexData?.decimals ?? null,
+    logo: dexData?.imageUrl ?? null,
     totalSupply: dexData?.fdv && priceUsd > 0 ? String(Math.round(dexData.fdv / priceUsd)) : null,
 
     priceUsd,
@@ -59,98 +53,6 @@ export async function getTokenMarketData(tokenAddress: string): Promise<TokenMar
 
     priceHistory
   };
-}
-
-/* ─── Alchemy: Token Metadata ─── */
-
-async function fetchAlchemyTokenMetadata(tokenAddress: string) {
-  if (!ALCHEMY_API_KEY) return null;
-
-  const res = await fetch(`https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'alchemy_getTokenMetadata',
-      params: [tokenAddress]
-    }),
-    next: { revalidate: 3600 } // cache 1 hour — metadata rarely changes
-  });
-
-  if (!res.ok) return null;
-  const data = await res.json();
-  return data?.result as {
-    name: string;
-    symbol: string;
-    decimals: number;
-    logo: string | null;
-  } | null;
-}
-
-/* ─── Alchemy: Token Price by Address ─── */
-
-async function fetchAlchemyTokenPrice(tokenAddress: string): Promise<number | null> {
-  if (!ALCHEMY_API_KEY) return null;
-
-  const res = await fetch(
-    `https://api.g.alchemy.com/prices/v1/${ALCHEMY_API_KEY}/tokens/by-address`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        addresses: [{ network: 'base-mainnet', address: tokenAddress }]
-      }),
-      next: { revalidate: 60 } // cache 1 min
-    }
-  );
-
-  if (!res.ok) return null;
-  const data = await res.json();
-  const token = data?.data?.[0];
-  if (!token?.prices?.[0]?.value) return null;
-  return parseFloat(token.prices[0].value);
-}
-
-/* ─── Alchemy: Historical Prices (30 days) ─── */
-
-async function fetchAlchemyPriceHistory(
-  tokenAddress: string
-): Promise<{ timestamp: number; price: number }[]> {
-  if (!ALCHEMY_API_KEY) return [];
-
-  const endTime = new Date().toISOString();
-  const startTime = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-
-  const res = await fetch(
-    `https://api.g.alchemy.com/prices/v1/${ALCHEMY_API_KEY}/tokens/historical`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        symbol: undefined,
-        address: tokenAddress,
-        network: 'base-mainnet',
-        startTime,
-        endTime,
-        interval: '1d'
-      }),
-      next: { revalidate: 3600 } // cache 1 hour
-    }
-  );
-
-  if (!res.ok) return [];
-  const data = await res.json();
-  const history = data?.data?.prices ?? data?.data ?? [];
-
-  if (!Array.isArray(history)) return [];
-
-  return history
-    .filter((p: { value?: string; timestamp?: string }) => p.value && p.timestamp)
-    .map((p: { value: string; timestamp: string }) => ({
-      timestamp: new Date(p.timestamp).getTime(),
-      price: parseFloat(p.value)
-    }));
 }
 
 /* ─── DexScreener: DEX-specific data ─── */
@@ -168,6 +70,7 @@ async function fetchDexScreenerData(tokenAddress: string) {
   return {
     name: pair.baseToken?.name as string | undefined,
     symbol: pair.baseToken?.symbol as string | undefined,
+    decimals: pair.baseToken?.address ? 18 : undefined,
     imageUrl: pair.info?.imageUrl as string | undefined,
     priceUsd: pair.priceUsd as string | undefined,
     priceChange24h: pair.priceChange?.h24 ? parseFloat(pair.priceChange.h24) : 0,
@@ -178,6 +81,20 @@ async function fetchDexScreenerData(tokenAddress: string) {
     pairAddress: pair.pairAddress as string | undefined,
     dexUrl: pair.url as string | undefined
   };
+}
+
+async function fetchDexScreenerPriceHistory(
+  tokenAddress: string
+): Promise<{ timestamp: number; price: number }[]> {
+  const data = await fetchDexScreenerData(tokenAddress);
+  if (!data?.priceUsd) return [];
+
+  return [
+    {
+      timestamp: Date.now(),
+      price: parseFloat(data.priceUsd),
+    },
+  ];
 }
 
 /* ─── DexScreener: Batch volume for multiple tokens ─── */
@@ -200,7 +117,7 @@ export interface BatchTokenVolume {
 
 /**
  * Fetch live volume data from DexScreener for multiple tokens in batch.
- * Uses the /tokens/v1/base/{addresses} endpoint (up to 30 per request).
+ * Uses the /tokens/v1/bsc/{addresses} endpoint (up to 30 per request).
  * For each token, picks the highest-liquidity pair to avoid double-counting.
  */
 export async function fetchBatchDexScreenerData(
@@ -218,7 +135,7 @@ export async function fetchBatchDexScreenerData(
 
     try {
       const res = await fetch(
-        `https://api.dexscreener.com/tokens/v1/base/${joined}`,
+        `https://api.dexscreener.com/tokens/v1/bsc/${joined}`,
         { next: { revalidate: 60 } }
       );
       if (!res.ok) continue;
