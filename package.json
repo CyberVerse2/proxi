@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest run",
     "clone": "tsx scripts/clone.ts",
+    "smoke:fourmeme": "tsx scripts/smoke-fourmeme.ts",
     "launch-proxies": "tsx scripts/launch-proxies.ts",
     "assign-proxy-categories": "tsx scripts/assign-proxy-categories.ts",
     "db:push": "drizzle-kit push",
@@ -50,6 +52,7 @@
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.4"
   }
 }

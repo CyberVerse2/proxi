@@ -20,6 +20,26 @@ export interface CreatorEarningsBreakdown {
   creatorShareAvailable: bigint;
 }
 
+export function calculateCreatorShareBreakdown(params: {
+  claimed: bigint;
+  unclaimed: bigint;
+  creatorSharePaidOut: bigint;
+}) {
+  const { claimed, unclaimed, creatorSharePaidOut } = params;
+  const creatorShareClaimed = (claimed * BigInt(CREATOR_FEE_PERCENT)) / 100n;
+  const creatorShareUnclaimed = (unclaimed * BigInt(CREATOR_FEE_PERCENT)) / 100n;
+  const creatorShareTotal = creatorShareClaimed + creatorShareUnclaimed;
+  const creatorShareAvailable =
+    creatorShareTotal > creatorSharePaidOut ? creatorShareTotal - creatorSharePaidOut : 0n;
+
+  return {
+    creatorShareClaimed,
+    creatorShareUnclaimed,
+    creatorShareTotal,
+    creatorShareAvailable,
+  };
+}
+
 async function getQuoteTokenDecimals(quoteTokenAddress: string | null) {
   if (!quoteTokenAddress || quoteTokenAddress === ZERO_ADDRESS) return 18;
   if (quoteTokenAddress.toLowerCase() === USDC_ADDRESS.toLowerCase()) return USDC_DECIMALS;
@@ -79,12 +99,17 @@ export async function getFounderFeeBreakdown(tokenAddress: string): Promise<Crea
   ]);
 
   const total = claimed + unclaimed;
-  const creatorShareClaimed = (claimed * BigInt(CREATOR_FEE_PERCENT)) / 100n;
-  const creatorShareUnclaimed = (unclaimed * BigInt(CREATOR_FEE_PERCENT)) / 100n;
-  const creatorShareTotal = creatorShareClaimed + creatorShareUnclaimed;
   const creatorSharePaidOut = BigInt(paidOutResult[0]?.total ?? '0');
-  const creatorShareAvailable =
-    creatorShareTotal > creatorSharePaidOut ? creatorShareTotal - creatorSharePaidOut : 0n;
+  const {
+    creatorShareClaimed,
+    creatorShareUnclaimed,
+    creatorShareTotal,
+    creatorShareAvailable,
+  } = calculateCreatorShareBreakdown({
+    claimed,
+    unclaimed,
+    creatorSharePaidOut,
+  });
   const quoteToken = quoteTokenAddress === ZERO_ADDRESS ? null : quoteTokenAddress;
   const decimals = await getQuoteTokenDecimals(quoteToken);
   const totalUsd =

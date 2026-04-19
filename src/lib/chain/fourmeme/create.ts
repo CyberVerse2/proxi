@@ -51,11 +51,12 @@ async function fetchImageBlob(imageUrl: string | undefined, symbol: string) {
     }
   }
 
-  const initials = symbol.slice(0, 4).toUpperCase();
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><rect width="100%" height="100%" rx="64" fill="#101820"/><text x="50%" y="52%" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="180" fill="#BFFF00">${initials}</text></svg>`;
+  // Four.meme rejects our SVG fallback uploads, so use a tiny valid PNG instead.
+  const pngBase64 =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+iJ2QAAAAASUVORK5CYII=';
   return {
-    blob: new Blob([svg], { type: 'image/svg+xml' }),
-    filename: `${symbol.toLowerCase()}.svg`,
+    blob: new Blob([Buffer.from(pngBase64, 'base64')], { type: 'image/png' }),
+    filename: `${symbol.toLowerCase()}.png`,
   };
 }
 
@@ -87,7 +88,7 @@ async function fetchPublicConfig(): Promise<PublicConfigItem[]> {
   return data.data as PublicConfigItem[];
 }
 
-function pickUsdcRaisedToken(configs: PublicConfigItem[]) {
+export function pickUsdcRaisedToken(configs: PublicConfigItem[]) {
   const published = configs.filter((item) => item.status === 'PUBLISH');
   const candidates = published.length > 0 ? published : configs;
   const direct = candidates.find((item) => item.symbolAddress?.toLowerCase() === USDC_ADDRESS.toLowerCase());
@@ -99,7 +100,7 @@ function pickUsdcRaisedToken(configs: PublicConfigItem[]) {
   throw new Error('Four.meme public config does not expose a USDC raised token on BSC');
 }
 
-function buildTokenTaxInfo() {
+export function buildTokenTaxInfo() {
   if (!PROXI_FOUNDER_WALLET) {
     throw new Error('Missing PROXI_FOUNDER_WALLET_ADDRESS or PLATFORM_WALLET_ADDRESS');
   }
