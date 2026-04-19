@@ -110,12 +110,12 @@ export function ProxyTradeSidebar({
             </div>
 
             <a
-              href={`https://basescan.org/tx/${swapSuccess.txHash}`}
+              href={`https://bscscan.com/tx/${swapSuccess.txHash}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-lime text-sm hover:underline flex items-center gap-1.5"
             >
-              View on Basescan <ExternalLink size={13} />
+              View on BscScan <ExternalLink size={13} />
             </a>
 
             <Button className="w-full rounded-xl h-11 text-sm font-bold cursor-pointer" onClick={onClearSwapSuccess}>

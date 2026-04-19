@@ -55,7 +55,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Could not find wallet in Privy' }, { status: 500 });
     }
 
-    // 5. Encode the USDC transfer
+    // 5. Encode the BSC USDC transfer
     const transferData = encodeFunctionData({
       abi: ERC20_ABI,
       functionName: 'transfer',

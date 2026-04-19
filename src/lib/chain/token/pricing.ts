@@ -2,7 +2,7 @@ import {
   USDC_DECIMALS,
   USDC_ADDRESS,
   SLIPPAGE_BPS,
-  BASE_CHAIN_ID,
+  BSC_CHAIN_ID,
   ZX_API_BASE
 } from '@/lib/config/constants';
 import { ZX_API_KEY } from './internal';
@@ -19,7 +19,7 @@ export async function getTokensPerMessage(
   try {
     const sellAmount = BigInt(Math.round(pricePerMessage * 10 ** USDC_DECIMALS)).toString();
     const params = new URLSearchParams({
-      chainId: String(BASE_CHAIN_ID),
+      chainId: String(BSC_CHAIN_ID),
       sellToken: USDC_ADDRESS,
       buyToken: tokenAddress,
       sellAmount,
@@ -54,7 +54,7 @@ export async function getRawTokensPerMessage(
   try {
     const sellAmount = BigInt(Math.round(pricePerMessage * 10 ** USDC_DECIMALS)).toString();
     const params = new URLSearchParams({
-      chainId: String(BASE_CHAIN_ID),
+      chainId: String(BSC_CHAIN_ID),
       sellToken: USDC_ADDRESS,
       buyToken: tokenAddress,
       sellAmount,

@@ -39,7 +39,7 @@ const FEATURES: FeatureItem[] = [
   {
     icon: Gem,
     title: 'Proxi Tokenomics',
-    desc: `Each proxi gets its own tradeable token launched on Base. Creators earn ${CREATOR_FEE_PERCENT}% of all fees — your clone is literally an asset.`,
+    desc: `Each proxi gets its own tradeable token launched on BNB Smart Chain. Creators earn ${CREATOR_FEE_PERCENT}% of founder-tax revenue — your clone is literally an asset.`,
     visual: 'token',
     layout: 'vertical',
     gridClass: 'md:col-start-2 md:col-end-3 md:row-start-1 md:row-end-5',  // col 2, rows 1-4 (taller)

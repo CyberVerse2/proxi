@@ -4,13 +4,14 @@ export const MESSAGE_PRICE_USD = 0.1;
 export const MIN_BUY_MESSAGES = 10;
 export const SWAP_FEE_BPS = "100";
 export const SLIPPAGE_BPS = "100";
-export const CREATOR_FEE_PERCENT = 50;
+export const CREATOR_FEE_PERCENT = 60;
+export const PLATFORM_FEE_PERCENT = 40;
 
 // ── Blockchain ───────────────────────────────────────────────────────
-export const BASE_CHAIN_ID = 8453;
+export const BSC_CHAIN_ID = 56;
 export const USDC_ADDRESS =
-  "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
-export const USDC_DECIMALS = 6;
+  "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d" as const;
+export const USDC_DECIMALS = 18;
 
 // ── Assets ───────────────────────────────────────────────────────────
 export const DEFAULT_AVATAR = "/default-avatar.png";

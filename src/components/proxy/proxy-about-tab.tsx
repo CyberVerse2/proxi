@@ -53,7 +53,7 @@ export function ProxyAboutTab({
               />
               <div className="min-w-0 space-y-1">
                 <Badge className="bg-purple/15 text-purple border-purple/20">
-                  <Gem size={14} className="fill-purple" /> Fee earnings
+                  <Gem size={14} className="fill-purple" /> Creator earnings
                 </Badge>
                 <p className="text-white text-xl font-bold">
                   {feeData && feeData.totalUsd > 0 ? formatFeeUsd(feeData.totalUsd) : '$0.00'}
@@ -69,14 +69,14 @@ export function ProxyAboutTab({
                   <p className="text-gray text-xs font-medium mb-0.5">Claimed</p>
                   <p className="text-white/70 text-base font-semibold">
                     {feeData ? `${parseFloat(feeData.claimed).toFixed(6)}` : '0.000000'}
-                    <span className="text-gray text-xs ml-1">WETH</span>
+                    <span className="text-gray text-xs ml-1">USDC</span>
                   </p>
                 </div>
                 <div className="bg-emerald-400/5 border border-emerald-400/10 rounded-xl px-4 py-3">
-                  <p className="text-gray text-xs font-medium mb-0.5">Unclaimed</p>
+                  <p className="text-gray text-xs font-medium mb-0.5">Available</p>
                   <p className="text-emerald-400 text-base font-semibold">
                     {feeData ? `${parseFloat(feeData.unclaimed).toFixed(6)}` : '0.000000'}
-                    <span className="text-emerald-400/60 text-xs ml-1">WETH</span>
+                    <span className="text-emerald-400/60 text-xs ml-1">USDC</span>
                   </p>
                 </div>
               </div>
@@ -96,15 +96,15 @@ export function ProxyAboutTab({
                         <CheckCircle size={16} className="shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="font-medium">
-                            Claimed {parseFloat(claimResult.amount ?? '0').toFixed(6)} WETH
+                            Claimed {parseFloat(claimResult.amount ?? '0').toFixed(6)} USDC
                           </p>
                           <a
-                            href={`https://basescan.org/tx/${claimResult.txHash}`}
+                            href={`https://bscscan.com/tx/${claimResult.txHash}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-emerald-400/80 text-xs hover:underline flex items-center gap-1 mt-0.5"
                           >
-                            View on Basescan <ExternalLink size={11} />
+                            View on BscScan <ExternalLink size={11} />
                           </a>
                         </div>
                       </div>
@@ -129,7 +129,7 @@ export function ProxyAboutTab({
                     </span>
                   ) : (
                     <span className="flex items-center gap-2">
-                      <Coins size={16} /> Claim {parseFloat(feeData.unclaimed).toFixed(6)} WETH
+                      <Coins size={16} /> Claim {parseFloat(feeData.unclaimed).toFixed(6)} USDC
                     </span>
                   )}
                 </Button>

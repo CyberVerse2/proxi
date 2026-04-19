@@ -48,7 +48,7 @@ export function ProxyDetailHeader({
             <Crown size={20} className="text-lime" />
             <div>
               <p className="text-white text-base font-medium">This proxy is unclaimed</p>
-              <p className="text-gray text-sm">Are you @{handle}? Claim your proxy to earn royalties.</p>
+              <p className="text-gray text-sm">Are you @{handle}? Claim your proxy to receive creator payouts.</p>
             </div>
           </div>
           <Link href={`/${handle}/claim`}>

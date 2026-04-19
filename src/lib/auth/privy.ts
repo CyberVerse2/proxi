@@ -1,9 +1,9 @@
 import { PrivyClient } from '@privy-io/server-auth';
-import { BASE_CHAIN_ID } from '@/lib/config/constants';
+import { BSC_CHAIN_ID } from '@/lib/config/constants';
 
 const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID!;
 const PRIVY_APP_SECRET = process.env.PRIVY_APP_SECRET!;
-const BASE_CAIP2 = `eip155:${BASE_CHAIN_ID}`;
+const BSC_CAIP2 = `eip155:${BSC_CHAIN_ID}`;
 
 export const privyServer = new PrivyClient(PRIVY_APP_ID, PRIVY_APP_SECRET);
 
@@ -156,7 +156,7 @@ export async function sendTransactionViaPrivy(
     },
     body: JSON.stringify({
       method: 'eth_sendTransaction',
-      caip2: BASE_CAIP2,
+      caip2: BSC_CAIP2,
       chain_type: 'ethereum',
       params: {
         transaction: {

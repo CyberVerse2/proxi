@@ -5,11 +5,12 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import {
-  getTotalWethFees,
+  getProxyCreatorEarnings,
   getTokenMarketData,
   type TokenMarketData,
 } from "@/lib/chain/token";
-import { formatEther } from "viem";
+import { formatUnits } from "viem";
+import { USDC_DECIMALS } from "@/lib/config/constants";
 
 interface ClaimPageProps {
   params: Promise<{ handle: string }>;
@@ -27,20 +28,6 @@ export interface TokenHolder {
   label?: string;
 }
 
-async function fetchEthPriceUsd(): Promise<number> {
-  try {
-    const res = await fetch(
-      "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd",
-      { next: { revalidate: 300 } }
-    );
-    if (!res.ok) return 0;
-    const data = await res.json();
-    return data?.ethereum?.usd ?? 0;
-  } catch {
-    return 0;
-  }
-}
-
 async function fetchTopHolders(
   tokenAddress: string,
 ): Promise<TokenHolder[]> {
@@ -49,7 +36,7 @@ async function fetchTopHolders(
 
   try {
     const res = await fetch(
-      `https://deep-index.moralis.io/api/v2.2/erc20/${tokenAddress}/owners?chain=base&order=DESC&limit=100`,
+      `https://deep-index.moralis.io/api/v2.2/erc20/${tokenAddress}/owners?chain=bsc&order=DESC&limit=100`,
       {
         headers: {
           accept: "application/json",
@@ -127,17 +114,12 @@ export default async function ClaimPage({ params }: ClaimPageProps) {
 
       if (!walletAddress) return null;
 
-      const [fees, ethPrice] = await Promise.all([
-        getTotalWethFees(
-          proxy.tokenAddress!,
-          walletAddress as `0x${string}`
-        ),
-        fetchEthPriceUsd(),
-      ]);
-
-      const totalEth = parseFloat(formatEther(fees.total));
+      const fees = await getProxyCreatorEarnings(
+        proxy.tokenAddress!,
+        walletAddress as `0x${string}`
+      );
       return {
-        totalUsd: totalEth * ethPrice,
+        totalUsd: parseFloat(formatUnits(fees.creatorShareTotal, USDC_DECIMALS)),
       };
     })().catch(() => null);
 

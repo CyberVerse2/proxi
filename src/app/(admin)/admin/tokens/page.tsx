@@ -28,7 +28,7 @@ function formatUsd(value: number | null): string {
 }
 
 function getExplorerUrl(address: string, chain: string): string {
-  if (chain === "base") return `https://basescan.org/token/${address}`;
+  if (chain === "bsc") return `https://bscscan.com/token/${address}`;
   return `https://etherscan.io/token/${address}`;
 }
 

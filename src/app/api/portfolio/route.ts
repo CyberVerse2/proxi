@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { proxies } from "@/lib/db/schema";
 import { isNotNull } from "drizzle-orm";
 import { getTokenPrice } from "@/lib/chain/token";
-import { baseClient } from "@/lib/chain/config";
+import { bscClient } from "@/lib/chain/config";
 import { parseAbi, formatUnits } from "viem";
 import {
   DEFAULT_AVATAR,
@@ -39,7 +39,7 @@ export async function GET(request: Request) {
     for (const proxy of allProxies) {
       if (!proxy.tokenAddress) continue;
       try {
-        const balance = await baseClient.readContract({
+        const balance = await bscClient.readContract({
           address: proxy.tokenAddress as `0x${string}`,
           abi: ERC20_ABI,
           functionName: "balanceOf",
@@ -86,7 +86,7 @@ export async function GET(request: Request) {
     // Fetch USDC balance
     let usdcBalance = 0;
     try {
-      const rawBalance = await baseClient.readContract({
+      const rawBalance = await bscClient.readContract({
         address: USDC_ADDRESS as `0x${string}`,
         abi: ERC20_ABI,
         functionName: "balanceOf",

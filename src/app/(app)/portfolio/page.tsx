@@ -22,7 +22,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useSwap } from "@/hooks/use-swap";
 import { useFundWallet } from "@privy-io/react-auth";
 import { WithdrawModal } from "@/components/modals/withdraw-modal";
-import { base } from "viem/chains";
+import { bsc } from "viem/chains";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -119,7 +119,7 @@ export default function PortfolioPage() {
     fundWallet({
       address: walletAddress,
       options: {
-        chain: base,
+        chain: bsc,
         asset: "USDC",
       },
     });
@@ -468,7 +468,7 @@ export default function PortfolioPage() {
                             </Button>
                           </Link>
                           <a
-                            href={`https://dexscreener.com/base/${h.tokenAddress}`}
+                            href={`https://dexscreener.com/bsc/${h.tokenAddress}`}
                             target="_blank"
                             rel="noopener noreferrer"
                           >

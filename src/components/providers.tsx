@@ -3,7 +3,7 @@
 import { PrivyProvider } from '@privy-io/react-auth';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
-import { base } from 'viem/chains';
+import { bsc } from 'viem/chains';
 
 function PrivyWrapper({ children }: { children: React.ReactNode }) {
   const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
@@ -14,8 +14,8 @@ function PrivyWrapper({ children }: { children: React.ReactNode }) {
       config={{
         appearance: { theme: 'dark', accentColor: '#BFFF00' },
         loginMethods: ['twitter'],
-        defaultChain: base,
-        supportedChains: [base],
+        defaultChain: bsc,
+        supportedChains: [bsc],
         embeddedWallets: { ethereum: { createOnLogin: 'users-without-wallets' } }
       }}
     >

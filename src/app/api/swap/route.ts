@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import {
-  BASE_CHAIN_ID,
+  BSC_CHAIN_ID,
   USDC_ADDRESS,
   SWAP_FEE_BPS,
   SLIPPAGE_BPS,
@@ -53,7 +53,7 @@ export async function GET(request: Request) {
   const buyToken = isBuy ? tokenAddress : USDC_ADDRESS;
 
   const params = new URLSearchParams({
-    chainId: String(BASE_CHAIN_ID),
+    chainId: String(BSC_CHAIN_ID),
     sellToken,
     buyToken,
     sellAmount,

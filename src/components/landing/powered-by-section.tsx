@@ -6,7 +6,7 @@ import { SiFarcaster } from 'react-icons/si';
 
 const POWERED_ITEMS: PoweredItem[] = [
   {
-    name: 'Base',
+    name: 'BNB Chain',
     image: '/tools/base.png',
     hoverColor: '#0052FF',
   },
@@ -16,7 +16,7 @@ const POWERED_ITEMS: PoweredItem[] = [
     hoverColor: '#8A63D2',
   },
   {
-    name: 'Clanker',
+    name: 'Four.meme',
     image: '/tools/clank.png',
     hoverColor: '#BFFF00',
   },
