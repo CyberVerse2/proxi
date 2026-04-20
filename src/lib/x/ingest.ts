@@ -31,7 +31,7 @@ interface IngestResult {
  *  8. Select writing examples (few-shot)
  *  9. Topic-clustered brain building
  * 10. AI-powered category classification
- * 11. Update proxy record
+ * 11. Save AI artifacts (token deployment happens after this)
  */
 export async function runFullIngestion(
   proxyId: string,
@@ -64,16 +64,15 @@ export async function runFullIngestion(
     log
   );
 
-  // Step 12: Update proxy with brain data
-  log('finalize', 'Saving brain to proxy...');
+  // Save AI artifacts, but keep the proxy in a non-live state until token deployment succeeds.
+  log('finalize', 'Saving AI artifacts to proxy...');
   await updateProxy(proxyId, {
     voiceProfile: voiceProfile as unknown as Record<string, unknown>,
     coreBrain: coreBrain as unknown as Record<string, unknown>,
     writingExamples: writingExamples as unknown as Record<string, unknown>,
-    status: 'live'
   });
 
-  log('complete', 'Proxy is now live!');
+  log('complete', 'AI artifacts saved; waiting for token deployment.');
 
   return {
     tweetsCollected: allTweets.length,
@@ -86,4 +85,3 @@ export async function runFullIngestion(
     categorySlug,
   };
 }
-

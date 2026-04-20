@@ -10,6 +10,10 @@ import { buildCoreBrain } from '@/lib/ai/brain-builder';
 import { classifyProxy } from '@/lib/ai/classifier';
 import { getCategoryBySlug, updateProxy } from '@/lib/db/queries';
 
+const VOICE_SAMPLE_SIZE = 80;
+const EXAMPLES_SAMPLE_SIZE = 60;
+const BRAIN_SAMPLE_SIZE = 120;
+
 export async function resolveTweetSource(
   xHandle: string,
   proxyId: string,
@@ -96,17 +100,17 @@ export async function storeEmbeddingsAndArtifacts(
   log('embed', `Stored ${stored} chunks with embeddings`);
 
   log('voice', 'Analyzing writing voice (3-pass)...');
-  const texts = topPosts.slice(0, 500).map((sp) => sp.tweet.text);
+  const texts = topPosts.slice(0, VOICE_SAMPLE_SIZE).map((sp) => sp.tweet.text);
   const voiceProfile = await analyzeVoice(texts);
   log('voice', 'Voice profile generated');
 
   log('examples', 'Selecting representative writing examples...');
-  const exampleTexts = topPosts.slice(0, 200).map((sp) => sp.tweet.text);
+  const exampleTexts = topPosts.slice(0, EXAMPLES_SAMPLE_SIZE).map((sp) => sp.tweet.text);
   const writingExamples = await selectWritingExamples(exampleTexts);
   log('examples', `Selected ${writingExamples.length} writing examples`);
 
   log('brain', 'Building core brain (topic-clustered)...');
-  const brainTexts = topPosts.slice(0, 300).map((sp) => sp.tweet.text);
+  const brainTexts = topPosts.slice(0, BRAIN_SAMPLE_SIZE).map((sp) => sp.tweet.text);
   const voiceRecord = JSON.parse(JSON.stringify(voiceProfile)) as Record<string, unknown>;
   const coreBrain = await buildCoreBrain(brainTexts, voiceRecord);
   log('brain', 'Core brain built');

@@ -9,7 +9,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
 import { generateStructured } from "./structured";
 
-const model = anthropic("claude-sonnet-4-20250514");
+const model = anthropic("claude-haiku-3");
 
 const CATEGORY_SLUGS = [
   "top-creators",
@@ -79,7 +79,9 @@ export async function classifyProxy(opts: {
   return generateStructured({
     model,
     schema: classificationSchema,
-    maxOutputTokens: 500,
+    label: 'category-classifier',
+    maxOutputTokens: 250,
     prompt,
+    retryOnFailure: false,
   });
 }

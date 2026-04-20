@@ -14,7 +14,8 @@ import { CLUSTER_PROMPT } from './brain-builder/prompts';
 import { buildTopicSummary, analyzeReasoningStyle, synthesizeBrain } from './brain-builder/pipeline';
 import { topicClusterSchema, type CoreBrain } from './brain-builder/schemas';
 
-const model = anthropic('claude-sonnet-4-20250514');
+const model = anthropic('claude-haiku-3');
+const MAX_TOPIC_CLUSTERS = 5;
 
 export interface TopicCluster {
   topic: string;
@@ -32,13 +33,15 @@ export async function clusterByTopic(posts: string[]): Promise<TopicCluster[]> {
     schema: z.object({
       clusters: z
         .array(topicClusterSchema)
-        .describe('6-12 topic clusters covering all post indices')
+        .describe('4-6 topic clusters covering all post indices')
     }),
-    maxOutputTokens: 4000,
-    prompt: CLUSTER_PROMPT.replace('{POSTS}', numbered)
+    label: 'brain-clusters',
+    maxOutputTokens: 1800,
+    prompt: CLUSTER_PROMPT.replace('{POSTS}', numbered),
+    retryOnFailure: false
   });
 
-  return result.clusters;
+  return normalizeClusters(result.clusters, posts.length);
 }
 
 /**
@@ -48,7 +51,7 @@ export async function buildCoreBrain(
   posts: string[],
   voiceProfile: Record<string, unknown>
 ): Promise<CoreBrain> {
-  const postSample = posts.slice(0, 300);
+  const postSample = posts.slice(0, 120);
 
   // Phase 1: Cluster
   const clusters = await clusterByTopic(postSample);
@@ -56,7 +59,7 @@ export async function buildCoreBrain(
   // Phase 2 + 2.5: Run topic summaries and reasoning analysis in parallel.
   const topicSummariesPromise = (async () => {
     const summaries: { topic: string; summary: Awaited<ReturnType<typeof buildTopicSummary>> }[] = [];
-    const batchSize = 4;
+    const batchSize = 2;
     for (let i = 0; i < clusters.length; i += batchSize) {
       const batch = clusters.slice(i, i + batchSize);
       const results = await Promise.all(
@@ -85,4 +88,52 @@ export async function buildCoreBrain(
 
   // Phase 3: Synthesize (now includes reasoning analysis)
   return synthesizeBrain(topicSummaries, voiceProfile, reasoningAnalysis);
+}
+
+function normalizeClusters(clusters: TopicCluster[], postCount: number): TopicCluster[] {
+  const sanitized = clusters
+    .map((cluster) => ({
+      topic: cluster.topic.trim() || 'General / Miscellaneous',
+      tweetIndices: cluster.tweetIndices.filter((idx) => idx >= 0 && idx < postCount)
+    }))
+    .filter((cluster) => cluster.tweetIndices.length > 0)
+    .sort((a, b) => b.tweetIndices.length - a.tweetIndices.length);
+
+  const deduped: TopicCluster[] = [];
+  const seen = new Set<number>();
+
+  for (const cluster of sanitized) {
+    const uniqueIndices = cluster.tweetIndices.filter((idx) => {
+      if (seen.has(idx)) return false;
+      seen.add(idx);
+      return true;
+    });
+
+    if (uniqueIndices.length > 0) {
+      deduped.push({ topic: cluster.topic, tweetIndices: uniqueIndices });
+    }
+  }
+
+  const kept = deduped.slice(0, MAX_TOPIC_CLUSTERS);
+  const overflow = deduped.slice(MAX_TOPIC_CLUSTERS).flatMap((cluster) => cluster.tweetIndices);
+  if (overflow.length > 0) {
+    kept.push({ topic: 'General / Miscellaneous', tweetIndices: overflow });
+  }
+
+  const covered = new Set(kept.flatMap((cluster) => cluster.tweetIndices));
+  const missing: number[] = [];
+  for (let i = 0; i < postCount; i++) {
+    if (!covered.has(i)) missing.push(i);
+  }
+
+  if (missing.length > 0) {
+    const misc = kept.find((cluster) => cluster.topic === 'General / Miscellaneous');
+    if (misc) {
+      misc.tweetIndices.push(...missing);
+    } else {
+      kept.push({ topic: 'General / Miscellaneous', tweetIndices: missing });
+    }
+  }
+
+  return kept;
 }

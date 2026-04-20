@@ -11,7 +11,7 @@ import { getUserByUsername } from "@/lib/x/client";
 
 /**
  * POST /api/proxy/ingest
- * Triggers the ingest-proxy Trigger.dev task from the setup wizard.
+ * Triggers proxy artifact ingestion from the setup wizard.
  * Creates the proxy record if needed.
  */
 export async function POST(request: Request) {
@@ -53,15 +53,8 @@ export async function POST(request: Request) {
     });
   }
 
-  // Wallet is required for token deployment
-  if (!user.walletAddress) {
-    return NextResponse.json(
-      { error: "No wallet address found. Please reconnect your account." },
-      { status: 400 }
-    );
-  }
-
-  // Trigger the ingestion via Inngest
+  // Trigger artifact ingestion via Inngest. Token launch is queued separately after
+  // ingestion completes if a wallet is already available.
   try {
     await inngest.send({
       name: "proxy/ingest.requested",
@@ -69,7 +62,7 @@ export async function POST(request: Request) {
         proxyId: proxy.id,
         xHandle,
         maxTweets: 500,
-        walletAddress: user.walletAddress,
+        walletAddress: user.walletAddress ?? undefined,
       },
     });
 

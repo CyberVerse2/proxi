@@ -11,7 +11,8 @@ import {
   type TopicSummary
 } from './schemas';
 
-const model = anthropic('claude-sonnet-4-20250514');
+const cheapModel = anthropic('claude-haiku-3');
+const synthesisModel = anthropic('claude-sonnet-4-20250514');
 
 /**
  * Phase 2: Build a summary for a single topic cluster.
@@ -23,10 +24,12 @@ export async function buildTopicSummary(
   const sample = posts.join('\n---\n');
 
   return generateStructured({
-    model,
+    model: cheapModel,
     schema: topicSummarySchema,
-    maxOutputTokens: 2000,
-    prompt: TOPIC_SUMMARY_PROMPT.replace('{TOPIC}', topic).replace('{POSTS}', sample)
+    label: `topic-summary:${topic}`,
+    maxOutputTokens: 800,
+    prompt: TOPIC_SUMMARY_PROMPT.replace('{TOPIC}', topic).replace('{POSTS}', sample),
+    retryOnFailure: false
   });
 }
 
@@ -84,7 +87,7 @@ export async function analyzeReasoningStyle(posts: string[]): Promise<ReasoningA
   });
 
   scoredPosts.sort((a, b) => b.score - a.score);
-  const selected = scoredPosts.slice(0, 80).map((s) => s.post);
+  const selected = scoredPosts.slice(0, 30).map((s) => s.post);
 
   if (selected.length < 5) {
     return {
@@ -100,10 +103,12 @@ export async function analyzeReasoningStyle(posts: string[]): Promise<ReasoningA
   const numbered = selected.map((p, i) => `[${i}] ${p}`).join('\n---\n');
 
   return generateStructured({
-    model,
+    model: cheapModel,
     schema: reasoningAnalysisSchema,
-    maxOutputTokens: 4000,
-    prompt: REASONING_PROMPT.replace('{POSTS}', numbered)
+    label: 'reasoning-analysis',
+    maxOutputTokens: 1400,
+    prompt: REASONING_PROMPT.replace('{POSTS}', numbered),
+    retryOnFailure: false
   });
 }
 
@@ -126,10 +131,12 @@ export async function synthesizeBrain(
     .replace('{REASONING}', JSON.stringify(reasoningAnalysis, null, 2));
 
   const brain = await generateStructured({
-    model,
+    model: synthesisModel,
     schema: coreBrainSchema,
-    maxOutputTokens: 8000,
-    prompt
+    label: 'brain-synthesis',
+    maxOutputTokens: 3000,
+    prompt,
+    retryOnFailure: false
   });
 
   // Verification step: ensure topic coverage

@@ -109,19 +109,37 @@ export async function generateStructured<T extends z.ZodType>(opts: {
   schema: T;
   maxOutputTokens: number;
   prompt: string;
+  label?: string;
+  retryOnFailure?: boolean;
 }): Promise<z.infer<T>> {
+  const label = opts.label ?? 'structured';
+  const retryOnFailure = opts.retryOnFailure ?? true;
+
+  const logUsage = (
+    phase: 'structured' | 'fallback',
+    usage: { inputTokens?: number; outputTokens?: number; totalTokens?: number } | undefined,
+    startedAt: number
+  ) => {
+    const durationMs = Date.now() - startedAt;
+    console.info(
+      `[structured:${label}] ${phase} duration=${durationMs}ms inputTokens=${usage?.inputTokens ?? 'n/a'} outputTokens=${usage?.outputTokens ?? 'n/a'} totalTokens=${usage?.totalTokens ?? 'n/a'}`
+    );
+  };
+
   // Attempt 1: structured output via Output.object()
   try {
-    const { output } = await generateText({
+    const startedAt = Date.now();
+    const { output, usage } = await generateText({
       model: opts.model,
       output: Output.object({ schema: opts.schema }),
       maxOutputTokens: opts.maxOutputTokens,
       prompt: opts.prompt
     });
+    logUsage('structured', usage, startedAt);
     if (output) return output as z.infer<T>;
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
-    console.warn(`[structured] Output.object() failed: ${errMsg.slice(0, 200)}`);
+    console.warn(`[structured:${label}] Output.object() failed: ${errMsg.slice(0, 200)}`);
 
     // If the error contains the raw response text, try to parse it directly
     if (err && typeof err === 'object' && 'text' in err) {
@@ -132,11 +150,11 @@ export async function generateStructured<T extends z.ZodType>(opts: {
           const parsed = lenientJsonParse(jsonMatch[1]);
           const result = opts.schema.safeParse(parsed);
           if (result.success) {
-            console.log('[structured] Raw text passes schema after sanitization — returning it.');
+            console.log(`[structured:${label}] Raw text passes schema after sanitization — returning it.`);
             return result.data;
           }
           console.warn(
-            `[structured] Schema validation failures on raw response:\n${formatZodErrors(result.error)}`
+            `[structured:${label}] Schema validation failures on raw response:\n${formatZodErrors(result.error)}`
           );
         } catch {
           // JSON parse failed even after sanitization, continue to attempt 2
@@ -145,14 +163,20 @@ export async function generateStructured<T extends z.ZodType>(opts: {
     }
   }
 
+  if (!retryOnFailure) {
+    throw new Error(`Structured output failed for ${label} and retry is disabled.`);
+  }
+
   // Attempt 2: plain text → extract JSON → sanitize → validate with schema
-  const { text } = await generateText({
+  const fallbackStartedAt = Date.now();
+  const { text, usage } = await generateText({
     model: opts.model,
     maxOutputTokens: opts.maxOutputTokens,
     prompt:
       opts.prompt +
       '\n\nIMPORTANT: Output ONLY valid JSON. No preamble, no explanation, no markdown fences. Start with { or [.'
   });
+  logUsage('fallback', usage, fallbackStartedAt);
 
   // Try to extract the outermost JSON object or array
   const jsonMatch = text.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
@@ -165,11 +189,11 @@ export async function generateStructured<T extends z.ZodType>(opts: {
 
   if (!result.success) {
     console.error(
-      `[structured] Fallback also failed schema validation:\n${formatZodErrors(result.error)}`
+      `[structured:${label}] Fallback also failed schema validation:\n${formatZodErrors(result.error)}`
     );
 
     if (typeof parsed === 'object' && parsed !== null) {
-      console.error(`[structured] Keys returned by model: ${Object.keys(parsed).join(', ')}`);
+      console.error(`[structured:${label}] Keys returned by model: ${Object.keys(parsed).join(', ')}`);
     }
 
     throw new Error(

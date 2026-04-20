@@ -125,31 +125,37 @@ Rules:
 /*  Implementation                                                     */
 /* ------------------------------------------------------------------ */
 
-const model = anthropic("claude-sonnet-4-20250514");
+const model = anthropic("claude-haiku-3");
 
 export async function analyzeVoice(posts: string[]): Promise<VoiceProfile> {
-  // Token guard: cap at ~300 posts
-  const sample = posts.slice(0, 300).join("\n---\n");
+  // Token guard: cap aggressively to keep ingestion affordable.
+  const sample = posts.slice(0, 80).join("\n---\n");
 
   // Run all three passes in parallel for speed
   const [s, t, sig] = await Promise.all([
     generateStructured({
       model,
       schema: styleSchema,
-      maxOutputTokens: 2000,
+      label: 'voice-style',
+      maxOutputTokens: 900,
       prompt: STYLE_PROMPT.replace("{POSTS}", sample),
+      retryOnFailure: false,
     }),
     generateStructured({
       model,
       schema: toneMapSchema,
-      maxOutputTokens: 2000,
+      label: 'voice-tone-map',
+      maxOutputTokens: 900,
       prompt: TONE_MAP_PROMPT.replace("{POSTS}", sample),
+      retryOnFailure: false,
     }),
     generateStructured({
       model,
       schema: signatureSchema,
-      maxOutputTokens: 2000,
+      label: 'voice-signature',
+      maxOutputTokens: 900,
       prompt: SIGNATURE_PROMPT.replace("{POSTS}", sample),
+      retryOnFailure: false,
     }),
   ]);
 

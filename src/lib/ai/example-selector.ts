@@ -44,15 +44,17 @@ Rules:
 export async function selectWritingExamples(
   posts: string[],
 ): Promise<WritingExample[]> {
-  const sample = posts.slice(0, 200).join("\n---\n");
+  const sample = posts.slice(0, 60).join("\n---\n");
 
   const result = await generateStructured({
-    model: anthropic("claude-sonnet-4-20250514"),
+    model: anthropic("claude-haiku-3"),
     schema: z.object({
       examples: z.array(writingExampleSchema).describe("12-15 representative writing examples across different categories"),
     }),
-    maxOutputTokens: 3000,
+    label: 'writing-examples',
+    maxOutputTokens: 1200,
     prompt: SELECT_PROMPT.replace("{POSTS}", sample),
+    retryOnFailure: false,
   });
 
   return result.examples;
