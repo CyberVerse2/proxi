@@ -7,11 +7,9 @@ import {
   Settings,
   MessageSquare,
   BarChart3,
-  Users,
   Zap,
   ExternalLink,
   RefreshCw,
-  Ghost,
   Coins,
   Loader2
 } from 'lucide-react';
@@ -25,28 +23,60 @@ import type { Proxy } from '@/lib/db/schema';
 export default function MyProxyPage() {
   const { user, authenticated, ready, walletAddress } = useAuth();
   const [proxy, setProxy] = useState<Proxy | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [fetched, setFetched] = useState(false);
   const [tokenizing, setTokenizing] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
-  const [tokenSuccess, setTokenSuccess] = useState(false);
+  const [tokenQueued, setTokenQueued] = useState(false);
 
   useEffect(() => {
     if (!ready) return;
-    if (!authenticated || !user?.id) {
-      setLoading(false);
-      return;
-    }
+    if (!authenticated || !user?.id) return;
 
-    fetch(`/api/user/me?privyId=${encodeURIComponent(user.id)}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.proxy) setProxy(data.proxy);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    void (async () => {
+      try {
+        const meRes = await fetch(`/api/user/me?privyId=${encodeURIComponent(user.id)}`);
+        const meData = await meRes.json();
+        if (!cancelled && meData.proxy) {
+          setProxy(meData.proxy);
+          if (meData.proxy.tokenAddress) {
+            setTokenQueued(false);
+          }
+        }
+      } catch {
+        // Ignore initial load errors.
+      } finally {
+        if (!cancelled) setFetched(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [ready, authenticated, user?.id]);
 
-  if (loading) {
+  useEffect(() => {
+    if (!tokenQueued || !user?.id) return;
+
+    const interval = window.setInterval(async () => {
+      try {
+        const meRes = await fetch(`/api/user/me?privyId=${encodeURIComponent(user.id)}`);
+        const meData = await meRes.json();
+        if (meData.proxy) {
+          setProxy(meData.proxy);
+          if (meData.proxy.tokenAddress) {
+            setTokenQueued(false);
+          }
+        }
+      } catch {
+        // Ignore background polling errors.
+      }
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, [tokenQueued, user?.id]);
+
+  if (!ready || (authenticated && !fetched)) {
     return (
       <div className="p-6 md:p-8 flex items-center justify-center min-h-[60vh]">
         <div className="w-8 h-8 border-2 border-lime/30 border-t-lime rounded-full animate-spin" />
@@ -106,7 +136,7 @@ export default function MyProxyPage() {
                 if (!user?.id || !walletAddress) return;
                 setTokenizing(true);
                 setTokenError(null);
-                setTokenSuccess(false);
+                setTokenQueued(false);
                 try {
                   const res = await fetch('/api/proxy/tokenize', {
                     method: 'POST',
@@ -115,30 +145,46 @@ export default function MyProxyPage() {
                   });
                   const data = await res.json();
                   if (!res.ok) {
-                    setTokenError(data.error ?? 'Token deployment failed');
+                    setTokenError(data.error ?? 'Token launch failed');
                   } else {
-                    setTokenSuccess(true);
-                    // Refresh proxy data
-                    const meRes = await fetch(
-                      `/api/user/me?privyId=${encodeURIComponent(user.id)}`
-                    );
+                    setTokenQueued(true);
+                    const meRes = await fetch(`/api/user/me?privyId=${encodeURIComponent(user.id)}`);
                     const meData = await meRes.json();
-                    if (meData.proxy) setProxy(meData.proxy);
+                    if (meData.proxy) {
+                      setProxy(meData.proxy);
+                      if (meData.proxy.tokenAddress) {
+                        setTokenQueued(false);
+                      }
+                    }
                   }
                 } catch (err) {
                   setTokenError(
-                    err instanceof Error ? err.message : 'Unexpected error during deployment'
+                    err instanceof Error ? err.message : 'Unexpected error while queueing token launch'
                   );
                 }
                 setTokenizing(false);
               }}
             >
               {tokenizing ? <Loader2 size={14} className="animate-spin" /> : <Coins size={14} />}
-              {tokenizing ? 'Deploying...' : 'Tokenize'}
+              {tokenizing ? 'Queueing...' : 'Tokenize'}
             </Button>
           )}
-          <Button variant="outline" size="sm">
-            <RefreshCw size={14} /> Refresh Brain
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              if (!user?.id) return;
+              const meRes = await fetch(`/api/user/me?privyId=${encodeURIComponent(user.id)}`);
+              const meData = await meRes.json();
+              if (meData.proxy) {
+                setProxy(meData.proxy);
+                if (meData.proxy.tokenAddress) {
+                  setTokenQueued(false);
+                }
+              }
+            }}
+          >
+            <RefreshCw size={14} /> Refresh
           </Button>
           <Link href="/setup">
             <Button variant="secondary" size="sm">
@@ -161,12 +207,12 @@ export default function MyProxyPage() {
           </button>
         </div>
       )}
-      {tokenSuccess && (
+      {tokenQueued && !proxy.tokenAddress && (
         <div className="flex items-center gap-2 rounded-xl border border-lime/30 bg-lime/10 px-4 py-3 text-sm text-lime">
           <span className="shrink-0">&#10003;</span>
-          <span>Token deployed successfully!</span>
+          <span>Token launch queued. We&apos;re polling for the onchain result now.</span>
           <button
-            onClick={() => setTokenSuccess(false)}
+            onClick={() => setTokenQueued(false)}
             className="ml-auto text-lime/60 hover:text-lime transition-colors"
           >
             &times;

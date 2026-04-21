@@ -58,7 +58,7 @@ export async function deployFourMemeToken(params: DeployFourMemeTokenParams) {
 
   await db
     .update(proxies)
-    .set({ tokenAddress, ticker: params.symbol, updatedAt: new Date() })
+    .set({ tokenAddress, ticker: params.symbol, status: 'live', updatedAt: new Date() })
     .where(eq(proxies.id, params.proxyId));
 
   return {

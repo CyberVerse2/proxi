@@ -1,4 +1,4 @@
-export const CLUSTER_PROMPT = `You are grouping a person's posts by topic. Read all the posts and assign each post index to one of 6–12 topic clusters.
+export const CLUSTER_PROMPT = `You are grouping a person's posts by topic. Read all the posts and assign each post index to one of 4-6 topic clusters.
 
 <posts>
 {POSTS}
@@ -6,7 +6,7 @@ export const CLUSTER_PROMPT = `You are grouping a person's posts by topic. Read 
 
 Rules:
 - Use clear, descriptive topic names (e.g. "AI & Technology", "Crypto Markets", "Personal Life").
-- Aim for 6–12 clusters. Fewer is fine if the person has a narrow focus. Merge tiny clusters (<3 posts) into "General / Miscellaneous" rather than forcing a category.
+- Aim for 4-6 clusters. Fewer is fine if the person has a narrow focus. Merge tiny clusters (<3 posts) into "General / Miscellaneous" rather than forcing a category.
 - Every post index from 0 to the last post MUST appear in exactly one cluster. Do NOT skip any index.
 - After building your clusters, mentally verify no index is missing or duplicated.`;
 

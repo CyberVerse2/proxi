@@ -9,15 +9,16 @@
 
 import { inngest } from "./client";
 import { runFullIngestion } from "@/lib/x/ingest";
-import { sendCompletionReply } from "@/lib/x/bot";
 import { sendTweet } from "@/lib/x/client";
 import { db } from "@/lib/db";
 import { ingestionLogs } from "@/lib/db/schema";
-import { deployProxyToken } from "@/lib/chain/token";
 import { getProxyById } from "@/lib/db/queries";
 import { and, desc, eq } from 'drizzle-orm';
 import { createLogger } from '@/lib/observability/logger';
-import { assertEnvPresent } from '@/lib/config/env';
+
+function hasSavedArtifacts(proxy: Awaited<ReturnType<typeof getProxyById>>): boolean {
+  return Boolean(proxy?.voiceProfile && proxy?.coreBrain && proxy?.writingExamples);
+}
 
 export const ingestProxy = inngest.createFunction(
   {
@@ -32,7 +33,7 @@ export const ingestProxy = inngest.createFunction(
       xHandle: string;
       tweetId?: string;
       maxTweets?: number;
-      walletAddress: string;
+      walletAddress?: string;
     };
 
     const logger = createLogger('ingest-proxy');
@@ -72,16 +73,37 @@ export const ingestProxy = inngest.createFunction(
     };
 
     try {
-      const result = await runFullIngestion(
-        proxyId,
-        xHandle,
-        async (step, detail) => {
-          await logStep(step, detail);
-        },
-        maxTweets,
-      );
+      const shouldReuseArtifacts = hasSavedArtifacts(currentProxy);
+      const result = shouldReuseArtifacts
+        ? {
+            tweetsCollected: 0,
+            threadsDetected: 0,
+            afterFilter: 0,
+            topSelected: 0,
+            chunksStored: 0,
+            voiceProfile: currentProxy?.voiceProfile as Record<string, unknown>,
+            coreBrain: currentProxy?.coreBrain as Record<string, unknown>
+          }
+        : await runFullIngestion(
+            proxyId,
+            xHandle,
+            async (step, detail) => {
+              await logStep(step, detail);
+            },
+            maxTweets,
+          );
 
-      // Log success
+      if (shouldReuseArtifacts) {
+        logger.info('Skipping AI ingestion and reusing saved artifacts', { proxyId });
+      } else {
+        logger.info('Proxy ingestion complete', {
+          proxyId,
+          xHandle,
+          tweetsCollected: result.tweetsCollected,
+          topSelected: result.topSelected
+        });
+      }
+
       await db.insert(ingestionLogs).values({
         proxyId,
         step: "complete",
@@ -95,63 +117,19 @@ export const ingestProxy = inngest.createFunction(
         finishedAt: new Date(),
       });
 
-      logger.info('Proxy ingestion complete', {
-        proxyId,
-        xHandle,
-        tweetsCollected: result.tweetsCollected,
-        topSelected: result.topSelected
-      });
-
-      // Deploy token — required for proxy to go live
-      let tokenInfo: { tokenAddress: string; ticker: string } | undefined;
-      const proxy = await getProxyById(proxyId);
-
-      if (proxy?.tokenAddress) {
-        // Already deployed (e.g. retry after partial success)
-        logger.info('Token already deployed, skipping', {
-          proxyId,
-          tokenAddress: proxy.tokenAddress
+      if (walletAddress) {
+        logger.info('Queueing token launch after successful artifact build', { proxyId, walletAddress });
+        await inngest.send({
+          name: 'proxy/tokenize.requested',
+          data: {
+            proxyId,
+            xHandle,
+            tweetId,
+            walletAddress,
+          },
         });
-        tokenInfo = {
-          tokenAddress: proxy.tokenAddress,
-          ticker: proxy.ticker ?? xHandle.toUpperCase().slice(0, 5),
-        };
       } else {
-        assertEnvPresent(['DEPLOYER_PRIVATE_KEY'], 'ingest-proxy.token-deploy');
-        logger.info('Deploying token for proxy', { proxyId, walletAddress });
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://proxi.fun";
-        const displayName = proxy?.displayName ?? xHandle;
-        const tokenResult = await deployProxyToken({
-          name: displayName,
-          symbol: proxy?.ticker ?? xHandle.toUpperCase().slice(0, 5),
-          proxyId,
-          creatorAddress: walletAddress,
-          imageUrl: proxy?.avatarUrl ?? undefined,
-          description: `Digital clone of ${displayName}. Chat with me at ${appUrl}/${xHandle}`,
-        });
-        tokenInfo = {
-          tokenAddress: tokenResult.tokenAddress,
-          ticker: tokenResult.ticker,
-        };
-        logger.info('Token deployed', {
-          proxyId,
-          tokenAddress: tokenResult.tokenAddress,
-          ticker: tokenResult.ticker,
-          txHash: tokenResult.txHash
-        });
-      }
-
-      // Send completion tweet as a reply to the original mention
-      if (tweetId) {
-        try {
-          await sendCompletionReply(xHandle, proxyId, tweetId, tokenInfo);
-          logger.info('Completion tweet sent', { xHandle, tweetId, tokenInfo });
-        } catch (replyErr) {
-          // Don't fail the whole task if the tweet fails
-          logger.warn('Failed to send completion tweet', {
-            error: replyErr instanceof Error ? replyErr.message : String(replyErr)
-          });
-        }
+        logger.info('Artifact build complete; no wallet provided so token launch was not queued', { proxyId });
       }
 
       return result;

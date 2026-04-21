@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
+import { inngest } from "@/inngest/client";
 import { getUserByPrivyId, getProxyByCreatorId } from "@/lib/db/queries";
-import { deployProxyToken } from "@/lib/chain/token";
 
 /**
  * POST /api/proxy/tokenize
- * Deploy a token for the user's proxy via Clanker SDK.
- * The deployer wallet signs the tx; the user's wallet is set as reward recipient.
+ * Queue a token launch for the user's proxy.
  */
 export async function POST(request: Request) {
   const { privyId, walletAddress } = await request.json();
@@ -31,23 +30,33 @@ export async function POST(request: Request) {
     );
   }
 
+  if (!proxy.voiceProfile || !proxy.coreBrain || !proxy.writingExamples) {
+    return NextResponse.json(
+      { error: "Proxy artifacts are not ready yet. Finish ingestion before launching the token." },
+      { status: 409 }
+    );
+  }
+
   try {
-    const result = await deployProxyToken({
-      name: proxy.displayName ?? proxy.xHandle,
-      symbol: proxy.ticker ?? proxy.xHandle.toUpperCase().slice(0, 5),
-      proxyId: proxy.id,
-      creatorAddress: walletAddress,
-      imageUrl: proxy.avatarUrl ?? undefined,
-      description: proxy.bio ?? undefined,
+    await inngest.send({
+      name: "proxy/tokenize.requested",
+      data: {
+        proxyId: proxy.id,
+        xHandle: proxy.xHandle,
+        walletAddress,
+      },
     });
 
-    return NextResponse.json(result);
+    return NextResponse.json(
+      { queued: true, proxyId: proxy.id, message: "Token launch queued" },
+      { status: 202 }
+    );
   } catch (error) {
-    console.error("[tokenize] Deployment failed:", error);
+    console.error("[tokenize] Failed to queue token launch:", error);
     return NextResponse.json(
       {
         error:
-          error instanceof Error ? error.message : "Token deployment failed",
+          error instanceof Error ? error.message : "Failed to queue token launch",
       },
       { status: 500 }
     );
