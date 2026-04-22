@@ -2,7 +2,7 @@ import { parseAbi, parseAbiItem } from 'viem';
 
 export const FOUR_MEME_API_BASE = 'https://four.meme/meme-api/v1';
 export const BSC_RPC_URL =
-  process.env.NEXT_PUBLIC_BSC_RPC_URL ?? process.env.NEXT_PUBLIC_BASE_RPC_URL ?? 'https://bsc-dataseed.binance.org';
+  process.env.NEXT_PUBLIC_BSC_RPC_URL ?? 'https://bsc-dataseed.binance.org';
 export const TOKEN_MANAGER2_BSC = '0x5c952063c7fc8610FFDB798152D69F0B9550762b' as const;
 export const TOKEN_MANAGER_HELPER3_BSC = '0xF251F83e40a78868FcfA3FA4599Dad6494E46034' as const;
 export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const;
